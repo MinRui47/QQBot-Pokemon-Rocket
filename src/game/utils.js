@@ -1,28 +1,21 @@
-const { POKEMON_STATS, getPokemonList } = require('./data/pokemonData')
-
-const pokemonBaseData = {}
-for (const name of getPokemonList()) {
-  const data = POKEMON_STATS[name]
-  if (data) {
-    pokemonBaseData[name] = {
-      ...data,
-      rarity: data.rarity || (data.HP > 80 ? 'rare' : 'common')
-    }
-  }
-}
+const { pokemonDAL } = require('./database/dal')
 
 function getPokemonRarity(name) {
-  const base = pokemonBaseData[name]
-  if (!base) return 'common'
-  return base.rarity || 'common'
+  const pokemon = pokemonDAL.getPokemonByName(name)
+  if (!pokemon) return 'common'
+  
+  const legendary = pokemon.legendaryCategory
+  if (legendary === 'legendary' || legendary === 'mythical') return 'legendary'
+  if (legendary === 'pseudo_legendary') return 'epic'
+  
+  return 'common'
 }
 
 function getPokemonData(name) {
-  return pokemonBaseData[name] || null
+  return pokemonDAL.getPokemonByName(name) || null
 }
 
 module.exports = {
   getPokemonRarity,
-  getPokemonData,
-  pokemonBaseData
+  getPokemonData
 }

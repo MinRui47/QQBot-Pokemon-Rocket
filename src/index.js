@@ -921,11 +921,24 @@ async function connect() {
   })
 }
 
+const { bootstrap } = require('./game/bootstrap')
+
 console.log(`\x1b[34m[INFO]\x1b[0m 正在启动 QQ 频道机器人...`)
 console.log(`\x1b[34m[INFO]\x1b[0m QQ: ${config.qq}`)
 console.log(`\x1b[34m[INFO]\x1b[0m AppID: ${config.appId}`)
 
-connect()
+async function start() {
+  try {
+    await bootstrap()
+    global.dbReady = true
+    await connect()
+  } catch (error) {
+    console.error(`\x1b[31m[FATAL]\x1b[0m 启动失败: ${error.message}`)
+    process.exit(1)
+  }
+}
+
+start()
 
 setInterval(() => {
   gameManager.saveData()

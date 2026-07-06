@@ -1,157 +1,18 @@
 const { Pokemon, calculateCaptureRate, ITEM_CONFIG, RARITY_COLORS } = require('../models')
 const { MEDALS } = require('../map')
-const MOVE_DATABASE = require('../models/moves')
+const { getMoveData, getPokemonTypes, getPokemonBaseStats } = require('../dataService')
+const { loadTypeChart, loadStatusEffects } = require('../configCache')
 
-const TYPE_CHART = {
-  '火': { 火: 0.5, 水: 0.5, 草: 2, 电: 1, 冰: 2, 格斗: 1, 毒: 1, 地面: 1, 飞行: 1, 超能力: 1, 虫: 2, 岩石: 0.5, 幽灵: 1, 龙: 0.5, 恶: 1, 钢: 2, 妖精: 1 },
-  '水': { 火: 2, 水: 0.5, 草: 0.5, 电: 0.5, 冰: 1, 格斗: 1, 毒: 1, 地面: 2, 飞行: 1, 超能力: 1, 虫: 1, 岩石: 2, 幽灵: 1, 龙: 0.5, 恶: 1, 钢: 1, 妖精: 1 },
-  '草': { 火: 0.5, 水: 2, 草: 0.5, 电: 1, 冰: 0.5, 格斗: 1, 毒: 0.5, 地面: 2, 飞行: 0.5, 超能力: 1, 虫: 0.5, 岩石: 2, 幽灵: 1, 龙: 0.5, 恶: 1, 钢: 0.5, 妖精: 1 },
-  '电': { 火: 1, 水: 2, 草: 0.5, 电: 0.5, 冰: 1, 格斗: 1, 毒: 1, 地面: 0, 飞行: 2, 超能力: 1, 虫: 1, 岩石: 1, 幽灵: 1, 龙: 0.5, 恶: 1, 钢: 1, 妖精: 1 },
-  '冰': { 火: 0.5, 水: 0.5, 草: 2, 电: 1, 冰: 0.5, 格斗: 1, 毒: 1, 地面: 2, 飞行: 2, 超能力: 1, 虫: 1, 岩石: 1, 幽灵: 1, 龙: 2, 恶: 1, 钢: 0.5, 妖精: 1 },
-  '格斗': { 火: 1, 水: 1, 草: 1, 电: 1, 冰: 2, 格斗: 1, 毒: 0.5, 地面: 1, 飞行: 0.5, 超能力: 0.5, 虫: 1, 岩石: 2, 幽灵: 0, 龙: 1, 恶: 2, 钢: 2, 妖精: 0.5 },
-  '毒': { 火: 1, 水: 1, 草: 2, 电: 1, 冰: 1, 格斗: 1, 毒: 0.5, 地面: 0.5, 飞行: 1, 超能力: 0.5, 虫: 1, 岩石: 0.5, 幽灵: 1, 龙: 1, 恶: 1, 钢: 0, 妖精: 2 },
-  '地面': { 火: 2, 水: 1, 草: 0.5, 电: 2, 冰: 1, 格斗: 1, 毒: 2, 地面: 1, 飞行: 0, 超能力: 1, 虫: 0.5, 岩石: 2, 幽灵: 1, 龙: 1, 恶: 1, 钢: 2, 妖精: 1 },
-  '飞行': { 火: 1, 水: 1, 草: 2, 电: 0.5, 冰: 0.5, 格斗: 2, 毒: 1, 地面: 2, 飞行: 1, 超能力: 1, 虫: 2, 岩石: 0.5, 幽灵: 1, 龙: 1, 恶: 1, 钢: 0.5, 妖精: 1 },
-  '超能力': { 火: 1, 水: 1, 草: 1, 电: 1, 冰: 1, 格斗: 2, 毒: 2, 地面: 1, 飞行: 1, 超能力: 0.5, 虫: 0.5, 岩石: 1, 幽灵: 0.5, 龙: 1, 恶: 0, 钢: 0.5, 妖精: 1 },
-  '虫': { 火: 0.5, 水: 1, 草: 2, 电: 1, 冰: 1, 格斗: 0.5, 毒: 0.5, 地面: 1, 飞行: 0.5, 超能力: 2, 虫: 1, 岩石: 1, 幽灵: 0.5, 龙: 1, 恶: 2, 钢: 0.5, 妖精: 0.5 },
-  '岩石': { 火: 2, 水: 0.5, 草: 0.5, 电: 1, 冰: 2, 格斗: 0.5, 毒: 2, 地面: 0.5, 飞行: 2, 超能力: 1, 虫: 2, 岩石: 1, 幽灵: 1, 龙: 1, 恶: 1, 钢: 0.5, 妖精: 1 },
-  '幽灵': { 火: 1, 水: 1, 草: 1, 电: 1, 冰: 1, 格斗: 1, 毒: 1, 地面: 1, 飞行: 1, 超能力: 2, 虫: 1, 岩石: 1, 幽灵: 2, 龙: 1, 恶: 0.5, 钢: 1, 妖精: 1 },
-  '龙': { 火: 1, 水: 1, 草: 1, 电: 1, 冰: 0.5, 格斗: 1, 毒: 1, 地面: 1, 飞行: 1, 超能力: 1, 虫: 1, 岩石: 1, 幽灵: 1, 龙: 2, 恶: 1, 钢: 0.5, 妖精: 0 },
-  '恶': { 火: 1, 水: 1, 草: 1, 电: 1, 冰: 1, 格斗: 0.5, 毒: 1, 地面: 1, 飞行: 1, 超能力: 2, 虫: 0.5, 岩石: 1, 幽灵: 2, 龙: 1, 恶: 0.5, 钢: 1, 妖精: 0.5 },
-  '钢': { 火: 0.5, 水: 0.5, 草: 1, 电: 0.5, 冰: 2, 格斗: 0.5, 毒: 1, 地面: 0.5, 飞行: 1, 超能力: 1, 虫: 1, 岩石: 2, 幽灵: 1, 龙: 1, 恶: 1, 钢: 0.5, 妖精: 2 },
-  '妖精': { 火: 0.5, 水: 1, 草: 1, 电: 1, 冰: 1, 格斗: 2, 毒: 0.5, 地面: 1, 飞行: 1, 超能力: 1, 虫: 1, 岩石: 1, 幽灵: 1, 龙: 2, 恶: 2, 钢: 0.5, 妖精: 1 }
+let TYPE_CHART = {}
+let STATUS_EFFECTS = {}
+
+async function initBattleConfig() {
+  TYPE_CHART = await loadTypeChart()
+  STATUS_EFFECTS = await loadStatusEffects()
+  console.log('[Battle] 战斗配置已从数据库加载')
 }
 
-const STATUS_EFFECTS = {
-  'poison': { name: '中毒', damage: 0.0625, message: '被毒侵蚀', lasts: -1 },
-  'burn': { name: '灼伤', damage: 0.0625, message: '被烧伤', lasts: -1, attackMod: 0.5 },
-  'freeze': { name: '冰冻', damage: 0, message: '被冰冻', lasts: -1, skipTurn: true },
-  'paralysis': { name: '麻痹', damage: 0, message: '被麻痹', lasts: -1, speedMod: 0.5, skipTurn: true, skipChance: 0.25 },
-  'sleep': { name: '睡眠', damage: 0, message: '睡着了', lasts: 3, skipTurn: true },
-  'badPoison': { name: '剧毒', damage: 0.0625, message: '中了剧毒', lasts: -1, grow: true },
-  'confusion': { name: '混乱', damage: 0, message: '陷入混乱', lasts: -1, selfDamage: true, skipTurn: true, skipChance: 0.33 },
-  'flinch': { name: '畏缩', damage: 0, message: '被畏缩', lasts: 0, skipTurn: true }
-}
-
-const MOVE_DATA = {
-  '撞击': { power: 35, accuracy: 95, type: '一般', category: 'physical', effect: null },
-  '叫声': { power: 0, accuracy: 100, type: '一般', category: 'status', effect: { statDrop: '攻击', amount: 1 } },
-  '泼沙': { power: 0, accuracy: 100, type: '地面', category: 'status', effect: { statDrop: '命中', amount: 1 } },
-  '毒针': { power: 15, accuracy: 100, type: '毒', category: 'physical', effect: { chance: 0.3, status: 'poison' } },
-  '毒牙': { power: 50, accuracy: 100, type: '毒', category: 'physical', effect: { chance: 0.3, status: 'poison' } },
-  '毒尾': { power: 50, accuracy: 100, type: '毒', category: 'physical', effect: { chance: 0.3, flinch: true } },
-  '毒液冲击': { power: 65, accuracy: 100, type: '毒', category: 'special', effect: null },
-  '污泥炸弹': { power: 90, accuracy: 100, type: '毒', category: 'special', effect: { chance: 0.3, statDrop: '特防', amount: 1 } },
-  '火花': { power: 40, accuracy: 100, type: '火', category: 'special', effect: { chance: 0.1, status: 'burn' } },
-  '火焰弹': { power: 65, accuracy: 100, type: '火', category: 'special', effect: { chance: 0.1, status: 'burn' } },
-  '喷射火焰': { power: 90, accuracy: 100, type: '火', category: 'special', effect: { chance: 0.1, status: 'burn' } },
-  '翅膀攻击': { power: 60, accuracy: 100, type: '飞行', category: 'physical', effect: null },
-  '空气切割': { power: 75, accuracy: 95, type: '飞行', category: 'special', effect: { chance: 0.3, flinch: true } },
-  '龙卷风': { power: 40, accuracy: 100, type: '龙', category: 'special', effect: { chance: 0.2, flinch: true } },
-  '高速移动': { power: 0, accuracy: 100, type: '超能力', category: 'status', effect: { statBoost: '速度', amount: 2 } },
-  '追击': { power: 40, accuracy: 100, type: '恶', category: 'physical', effect: null },
-  '影子球': { power: 80, accuracy: 100, type: '幽灵', category: 'special', effect: { chance: 0.2, statDrop: '特防', amount: 1 } },
-  '诅咒': { power: 0, accuracy: 100, type: '幽灵', category: 'status', effect: { statBoost: '攻击', amount: 1, statDrop: '速度', amount: 1 } },
-  '惊吓': { power: 30, accuracy: 100, type: '幽灵', category: 'physical', effect: { chance: 0.3, flinch: true } },
-  '电光一闪': { power: 40, accuracy: 100, type: '一般', category: 'physical', effect: { priority: 1 } },
-  '咬咬': { power: 60, accuracy: 100, type: '恶', category: 'physical', effect: { chance: 0.3, flinch: true } },
-  '疯狂乱抓': { power: 18, accuracy: 80, type: '一般', category: 'physical', effect: { hits: 2, maxHits: 5 } },
-  '抓': { power: 40, accuracy: 100, type: '一般', category: 'physical', effect: null },
-  '摇尾巴': { power: 0, accuracy: 100, type: '一般', category: 'status', effect: { statDrop: '防御', amount: 1 } },
-  '水枪': { power: 40, accuracy: 100, type: '水', category: 'special', effect: null },
-  '冲浪': { power: 90, accuracy: 100, type: '水', category: 'special', effect: null },
-  '泡沫光线': { power: 65, accuracy: 100, type: '水', category: 'special', effect: { chance: 0.3, statDrop: '速度', amount: 1 } },
-  '冰光线': { power: 90, accuracy: 100, type: '冰', category: 'special', effect: { chance: 0.1, status: 'freeze' } },
-  '冰冻光束': { power: 90, accuracy: 100, type: '冰', category: 'special', effect: { chance: 0.1, status: 'freeze' } },
-  '急冻拳': { power: 75, accuracy: 100, type: '冰', category: 'physical', effect: { chance: 0.1, status: 'freeze' } },
-  '火焰拳': { power: 75, accuracy: 100, type: '火', category: 'physical', effect: { chance: 0.1, status: 'burn' } },
-  '雷电拳': { power: 75, accuracy: 100, type: '电', category: 'physical', effect: { chance: 0.1, status: 'paralysis' } },
-  '猛撞': { power: 90, accuracy: 85, type: '一般', category: 'physical', effect: { recoil: 0.25 } },
-  '地震': { power: 100, accuracy: 100, type: '地面', category: 'physical', effect: null },
-  '岩石崩塌': { power: 75, accuracy: 90, type: '岩石', category: 'physical', effect: { chance: 0.3, flinch: true } },
-  '铁壁': { power: 0, accuracy: 100, type: '钢', category: 'status', effect: { statBoost: '防御', amount: 2 } },
-  '硬撑': { power: 70, accuracy: 100, type: '一般', category: 'physical', effect: null },
-  '舍身冲撞': { power: 120, accuracy: 100, type: '一般', category: 'physical', effect: { recoil: 0.33 } },
-  '睡觉': { power: 0, accuracy: 100, type: '超能力', category: 'status', effect: { heal: 0.5, status: 'sleep' } },
-  '打鼾': { power: 50, accuracy: 100, type: '一般', category: 'special', effect: { chance: 0.3, flinch: true } },
-  '守住': { power: 0, accuracy: 100, type: '一般', category: 'status', effect: { protect: true } },
-  '替身': { power: 0, accuracy: 100, type: '一般', category: 'status', effect: { substitute: true } },
-  '忍耐': { power: 0, accuracy: 100, type: '一般', category: 'status', effect: { endure: true } },
-  '愤怒': { power: 20, accuracy: 100, type: '一般', category: 'physical', effect: { boostsWithDamage: true } },
-  '撒娇': { power: 0, accuracy: 100, type: '妖精', category: 'status', effect: { statDrop: '攻击', amount: 2 } },
-  '迷人': { power: 0, accuracy: 100, type: '一般', category: 'status', effect: { attract: true } },
-  '魅惑之声': { power: 40, accuracy: 100, type: '妖精', category: 'special', effect: null },
-  '精神强念': { power: 90, accuracy: 100, type: '超能力', category: 'special', effect: { chance: 0.1, statDrop: '特防', amount: 1 } },
-  '魔法闪耀': { power: 80, accuracy: 100, type: '妖精', category: 'special', effect: null },
-  '念力': { power: 50, accuracy: 100, type: '超能力', category: 'special', effect: { chance: 0.3, flinch: true } },
-  '幻象光': { power: 65, accuracy: 100, type: '超能力', category: 'special', effect: { chance: 0.1, status: 'confusion' } },
-  '食梦': { power: 100, accuracy: 100, type: '超能力', category: 'special', effect: { heal: 0.5, requiresStatus: 'sleep' } },
-  '精神冲击': { power: 80, accuracy: 100, type: '超能力', category: 'special', effect: null },
-  '瞬间移动': { power: 0, accuracy: 100, type: '超能力', category: 'status', effect: { teleport: true } },
-  '模仿': { power: 0, accuracy: 100, type: '一般', category: 'status', effect: { mimic: true } },
-  '挥指': { power: 0, accuracy: 100, type: '一般', category: 'status', effect: { metronome: true } },
-  '变圆': { power: 0, accuracy: 100, type: '一般', category: 'status', effect: { statBoost: '防御', amount: 1 } },
-  '滚动': { power: 30, accuracy: 90, type: '岩石', category: 'physical', effect: { powerDoublesEachTurn: true } },
-  '岩石打磨': { power: 0, accuracy: 100, type: '岩石', category: 'status', effect: { statBoost: '攻击', amount: 1, statBoost: '速度', amount: 1 } },
-  '尖石攻击': { power: 100, accuracy: 80, type: '岩石', category: 'physical', effect: null },
-  '破坏死光': { power: 150, accuracy: 90, type: '一般', category: 'special', effect: { rechargeTurn: true } },
-  '百万吨重拳': { power: 80, accuracy: 85, type: '一般', category: 'physical', effect: null },
-  '百万吨重踢': { power: 120, accuracy: 75, type: '一般', category: 'physical', effect: null },
-  '地球上投': { power: 0, accuracy: 100, type: '格斗', category: 'physical', effect: { damageByLevel: true } },
-  '劲力': { power: 80, accuracy: 100, type: '格斗', category: 'physical', effect: { chance: 0.3, statDrop: '防御', amount: 1 } },
-  '十字切': { power: 100, accuracy: 80, type: '格斗', category: 'physical', effect: { criticalRate: 1 } },
-  '臂锤': { power: 100, accuracy: 90, type: '格斗', category: 'physical', effect: { statDrop: '速度', amount: 1 } },
-  '空手劈': { power: 50, accuracy: 100, type: '格斗', category: 'physical', effect: null },
-  '劈瓦': { power: 75, accuracy: 100, type: '格斗', category: 'physical', effect: null },
-  '健美': { power: 0, accuracy: 100, type: '格斗', category: 'status', effect: { statBoost: '攻击', amount: 1, statBoost: '防御', amount: 1 } },
-  '集中猛击': { power: 100, accuracy: 100, type: '格斗', category: 'physical', effect: { requiresFocus: true } },
-  '必杀门牙': { power: 80, accuracy: 90, type: '一般', category: 'physical', effect: { chance: 0.1, status: 'flinch' } },
-  '头锤': { power: 70, accuracy: 100, type: '一般', category: 'physical', effect: { chance: 0.3, flinch: true } },
-  '角撞': { power: 65, accuracy: 100, type: '一般', category: 'physical', effect: { chance: 0.2, flinch: true } },
-  '火箭头槌': { power: 130, accuracy: 100, type: '一般', category: 'physical', effect: { recoil: 0.33 } },
-  '冲撞': { power: 90, accuracy: 85, type: '一般', category: 'physical', effect: { chance: 0.3, flinch: true } },
-  '践踏': { power: 65, accuracy: 100, type: '一般', category: 'physical', effect: { chance: 0.3, flinch: true } },
-  '飞踢': { power: 100, accuracy: 95, type: '格斗', category: 'physical', effect: { missRecoil: true } },
-  '弹跳': { power: 85, accuracy: 85, type: '飞行', category: 'physical', effect: { jumpTurn: true } },
-  '飞膝踢': { power: 130, accuracy: 90, type: '格斗', category: 'physical', effect: { missRecoil: true } },
-  '毒击': { power: 80, accuracy: 100, type: '毒', category: 'physical', effect: { chance: 0.3, status: 'poison' } },
-  '剧毒': { power: 0, accuracy: 90, type: '毒', category: 'status', effect: { status: 'badPoison' } },
-  '溶解液': { power: 40, accuracy: 100, type: '毒', category: 'special', effect: { chance: 0.3, statDrop: '特防', amount: 1 } },
-  '酸液炸弹': { power: 40, accuracy: 100, type: '毒', category: 'special', effect: { chance: 0.1, statDrop: '特防', amount: 2 } },
-  '臭泥爆弹': { power: 90, accuracy: 100, type: '毒', category: 'special', effect: { chance: 0.3, statDrop: '特防', amount: 1 } },
-  '垃圾射击': { power: 120, accuracy: 80, type: '毒', category: 'physical', effect: { chance: 0.3, statDrop: '防御', amount: 1 } },
-  '吸取': { power: 20, accuracy: 100, type: '草', category: 'special', effect: { drain: 0.5 } },
-  '超级吸取': { power: 40, accuracy: 100, type: '草', category: 'special', effect: { drain: 0.5 } },
-  '光合作用': { power: 0, accuracy: 100, type: '草', category: 'status', effect: { heal: 0.5 } },
-  '日光束': { power: 120, accuracy: 100, type: '草', category: 'special', effect: { chargeTurn: true } },
-  '能量球': { power: 80, accuracy: 100, type: '草', category: 'special', effect: { chance: 0.1, statDrop: '特防', amount: 1 } },
-  '种子机关枪': { power: 25, accuracy: 100, type: '草', category: 'physical', effect: { hits: 2, maxHits: 5 } },
-  '飞叶快刀': { power: 55, accuracy: 95, type: '草', category: 'physical', effect: { criticalRate: 1 } },
-  '叶刃': { power: 90, accuracy: 100, type: '草', category: 'physical', effect: { criticalRate: 1 } },
-  '花瓣舞': { power: 120, accuracy: 100, type: '草', category: 'special', effect: { multiTurn: 3, confusionAfter: true } },
-  '藤鞭': { power: 45, accuracy: 100, type: '草', category: 'physical', effect: null },
-  '缠绕': { power: 10, accuracy: 100, type: '草', category: 'physical', effect: { chance: 0.3, statDrop: '速度', amount: 1 } },
-  '强力鞭打': { power: 120, accuracy: 85, type: '草', category: 'physical', effect: null },
-  '钢翼': { power: 70, accuracy: 90, type: '钢', category: 'physical', effect: { chance: 0.3, statBoost: '防御', amount: 1 } },
-  '金属爪': { power: 50, accuracy: 95, type: '钢', category: 'physical', effect: { chance: 0.1, statBoost: '攻击', amount: 1 } },
-  '铁头': { power: 80, accuracy: 100, type: '钢', category: 'physical', effect: { chance: 0.3, flinch: true } },
-  '放电': { power: 80, accuracy: 100, type: '电', category: 'special', effect: { chance: 0.3, status: 'paralysis' } },
-  '打雷': { power: 120, accuracy: 70, type: '电', category: 'special', effect: { chance: 0.3, status: 'paralysis' } },
-  '十万伏特': { power: 90, accuracy: 100, type: '电', category: 'special', effect: { chance: 0.1, status: 'paralysis' } },
-  '电击': { power: 40, accuracy: 100, type: '电', category: 'special', effect: { chance: 0.1, status: 'paralysis' } },
-  '电网': { power: 55, accuracy: 95, type: '电', category: 'special', effect: { chance: 0.3, statDrop: '速度', amount: 1 } },
-  '等离子浴': { power: 80, accuracy: 100, type: '电', category: 'special', effect: { chance: 0.3, statDrop: '特防', amount: 1 } },
-  '暗影爪': { power: 70, accuracy: 100, type: '幽灵', category: 'physical', effect: { criticalRate: 1 } },
-  '暗袭要害': { power: 70, accuracy: 100, type: '恶', category: 'physical', effect: { criticalRate: 1, ignoresProtect: true } },
-  '欺诈': { power: 95, accuracy: 100, type: '恶', category: 'special', effect: { usesTargetAttack: true } },
-  '突袭': { power: 80, accuracy: 100, type: '恶', category: 'physical', effect: { priority: 1, onlyIfFaster: true } },
-  '高速星星': { power: 60, accuracy: 100, type: '一般', category: 'special', effect: { alwaysHits: true } },
-  '空气刃': { power: 60, accuracy: 95, type: '飞行', category: 'special', effect: { criticalRate: 1 } },
-  '勇鸟猛攻': { power: 120, accuracy: 100, type: '飞行', category: 'physical', effect: { recoil: 0.33 } },
-  '暴风': { power: 110, accuracy: 70, type: '飞行', category: 'special', effect: { chance: 0.3, statDrop: '特防', amount: 1 } },
-  '猛闪': { power: 60, accuracy: 100, type: '一般', category: 'physical', effect: null },
-  '热风': { power: 95, accuracy: 90, type: '火', category: 'special', effect: { chance: 0.1, statDrop: '特防', amount: 1 } }
-}
+module.exports.initBattleConfig = initBattleConfig
 
 class BattleResult {
   constructor() {
@@ -563,7 +424,7 @@ class BattleSystem {
       return
     }
     
-    const moveData = MOVE_DATA[moveName] || MOVE_DATABASE[moveName] || { power: 40, accuracy: 100, type: '一般', category: 'physical', effect: null }
+    const moveData = await getMoveData(moveName)
     
     attacker.useMovePP(moveName)
     
@@ -890,5 +751,5 @@ module.exports = {
   BattleResult,
   TYPE_CHART,
   STATUS_EFFECTS,
-  MOVE_DATA
+  initBattleConfig
 }

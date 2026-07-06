@@ -1,64 +1,22 @@
 const { ITEM_CONFIG } = require('../config')
 const { getPokemonRarity } = require('../utils')
+const { loadRarityProbability, loadCollectionNames, loadRarityConfig } = require('../configCache')
 
-// 品质概率配置（根据地图难度）
-const RARITY_PROBABILITY = {
-  // difficulty 1 - 低级地图
-  1: {
-    common: 0.85,      // 普通品质 - 常见
-    uncommon: 0.12,    // 优秀品质 - 不常见
-    rare: 0.03,        // 稀有品质 - 非常少见
-    epic: 0,           // 史诗品质 - 不存在
-    legendary: 0,      // 金色品质 - 不存在
-    mythic: 0          // 神话品质 - 不存在
-  },
-  // difficulty 2 - 中级地图
-  2: {
-    common: 0.75,      // 普通品质 - 常见
-    uncommon: 0.18,    // 优秀品质 - 不常见
-    rare: 0.06,        // 稀有品质 - 非常少见
-    epic: 0.01,        // 史诗品质 - 极其少见
-    legendary: 0,      // 金色品质 - 不存在
-    mythic: 0          // 神话品质 - 不存在
-  },
-  // difficulty 3 - 高级地图
-  3: {
-    common: 0.65,      // 普通品质 - 常见
-    uncommon: 0.22,    // 优秀品质 - 不常见
-    rare: 0.10,        // 稀有品质 - 非常少见
-    epic: 0.025,       // 史诗品质 - 极其少见
-    legendary: 0.005,  // 金色品质 - 极稀有（只有特殊地点）
-    mythic: 0          // 神话品质 - 不存在
-  },
-  // difficulty 4 - 顶级地图
-  4: {
-    common: 0.50,      // 普通品质 - 常见
-    uncommon: 0.28,    // 优秀品质 - 不常见
-    rare: 0.15,        // 稀有品质 - 非常少见
-    epic: 0.05,        // 史诗品质 - 少见
-    legendary: 0.015,  // 金色品质 - 稀有
-    mythic: 0.005      // 神话品质 - 极稀有
+let RARITY_PROBABILITY = {}
+let COLLECTION_NAMES = {}
+let RARITY_BASE_PRICE = {}
+
+async function initMapConfig() {
+  RARITY_PROBABILITY = await loadRarityProbability()
+  COLLECTION_NAMES = await loadCollectionNames()
+  
+  const rarityConfig = await loadRarityConfig()
+  RARITY_BASE_PRICE = {}
+  for (const [key, config] of Object.entries(rarityConfig)) {
+    RARITY_BASE_PRICE[key] = config.basePrice || 50
   }
-}
-
-// 藏品名称库（根据品质）
-const COLLECTION_NAMES = {
-  common: ['旧报纸', '破损玩具', '廉价饰品', '普通石头', '废弃零件', '破旧书籍'],
-  uncommon: ['旧相册', '陶瓷杯子', '复古唱片', '小型雕塑', '手工编织物', '老式手表'],
-  rare: ['珍珠项链', '古董钟', '银质餐具', '稀有化石', '艺术画作', '宝石碎片'],
-  epic: ['黄金饰品', '古代文物', '稀有矿石', '名贵瓷器', '大师画作', '传家宝'],
-  legendary: ['传说徽章', '神秘宝石', '古老卷轴', '王者之证', '圣物碎片', '龙之鳞片'],
-  mythic: ['神话遗物', '创世之石', '永恒之心', '天界神器', '命运之轮', '时空碎片']
-}
-
-// 品质基础价格（格数会额外增加价格）
-const RARITY_BASE_PRICE = {
-  common: 50,
-  uncommon: 150,
-  rare: 500,
-  epic: 1500,
-  legendary: 5000,
-  mythic: 15000
+  
+  console.log('[Map] 地图配置已从数据库加载')
 }
 
 // 格数额外价格倍率
@@ -1209,5 +1167,6 @@ module.exports = {
   MEDALS,
   NPC_TRAINERS,
   getAvailableMaps,
-  getMapInfo
+  getMapInfo,
+  initMapConfig
 }

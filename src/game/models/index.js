@@ -1,95 +1,11 @@
-const { POKEMON_STATS, getPokemonList } = require('../data/pokemonData')
-const MOVE_DATABASE = require('./moves')
-const LEARNABLE_MOVES = require('./levelup_moves')
-const EVOLUTION_DATA = require('./evolution_data')
-const MEGA_STONES = require('./mega_stones')
 const { Player } = require('./Player')
 const { Backpack } = require('./Backpack')
 const { Belt } = require('./Belt')
 const { ITEM_CONFIG, RARITY_COLORS, MEDALS, INITIAL_POKEMON } = require('../config')
+const { getPokemonData, getPokemonLevelMoves, getPokemonTMs, getMoveData, getPokemonTypes, getPokemonRarity, getPokemonBaseStats, getPokemonCaptureRate, ensureDbInit } = require('../dataService')
+const { pokemonDAL, ensureDbInit: ensureDalDbInit } = require('../database/dal')
 
-const TYPE_ALIASES = {
-  '毒/飞行': ['毒', '飞行'],
-  '一般/飞行': ['一般', '飞行'],
-  '虫/飞行': ['虫', '飞行'],
-  '水/飞行': ['水', '飞行'],
-  '水/超能力': ['水', '超能力'],
-  '草/超能力': ['草', '超能力'],
-  '草/毒': ['草', '毒'],
-  '虫/毒': ['虫', '毒'],
-  '虫/草': ['虫', '草'],
-  '岩石/地面': ['岩石', '地面'],
-  '岩石/水': ['岩石', '水'],
-  '岩石/飞行': ['岩石', '飞行'],
-  '火/飞行': ['火', '飞行'],
-  '电/飞行': ['电', '飞行'],
-  '冰/飞行': ['冰', '飞行'],
-  '电/钢': ['电', '钢'],
-  '水/冰': ['水', '冰'],
-  '超能力/飞行': ['超能力', '飞行'],
-  '龙/飞行': ['龙', '飞行'],
-  '冰/超能力': ['冰', '超能力'],
-  '一般/妖精': ['一般', '妖精']
-}
-
-const RARITY_MAP = {
-  '梦幻': 'legendary', '超梦': 'legendary', '快龙': 'epic', '化石翼龙': 'epic',
-  '急冻鸟': 'legendary', '闪电鸟': 'legendary', '火焰鸟': 'legendary',
-  '暴鲤龙': 'epic', '喷火龙': 'epic', '水箭龟': 'epic', '妙蛙花': 'epic',
-  '雷丘': 'rare', '九尾': 'rare', '飞天螳螂': 'rare', '凯罗斯': 'rare',
-  '卡比兽': 'rare', '胡地': 'rare', '耿鬼': 'rare', '大针蜂': 'uncommon',
-  '皮卡丘': 'rare', '阿柏蛇': 'common', '波波': 'common', '绿毛虫': 'common'
-}
-
-function parseTypes(typeStr) {
-  if (!typeStr) return ['一般']
-  if (Array.isArray(typeStr)) return typeStr
-  return TYPE_ALIASES[typeStr] || [typeStr]
-}
-
-function pokemonBaseDataAdapter(localData, evolutionData, megaStones) {
-  const result = {}
-  for (const [name, data] of Object.entries(localData)) {
-    const types = parseTypes(data.type)
-    const evo = evolutionData[name]
-    const evolution = evo && evo.into ? { into: evo.into, level: evo.level, method: evo.method } : null
-    
-    const megaList = []
-    for (const [stoneKey, stoneData] of Object.entries(megaStones)) {
-      if (stoneData.pokemon === name) {
-        megaList.push({
-          name: stoneData.name,
-          stone: stoneData.stone,
-          types: stoneData.types,
-          baseStats: stoneData.baseStats
-        })
-      }
-    }
-    const mega = megaList.length > 0 ? megaList[0] : null
-    
-    result[name] = {
-      name: name,
-      types: types,
-      baseStats: {
-        HP: data.HP,
-        攻击: data.攻击,
-        防御: data.防御,
-        特攻: data.特攻,
-        特防: data.特防,
-        速度: data.速度
-      },
-      startingMoves: data.moves && data.moves.length > 0 ? [data.moves[0]] : ['撞击'],
-      rarity: RARITY_MAP[name] || 'common',
-      captureRate: 100,
-      growthRate: 'medium',
-      evolution: evolution,
-      mega: mega
-    }
-  }
-  return result
-}
-
-const pokemonBaseData = pokemonBaseDataAdapter(POKEMON_STATS, EVOLUTION_DATA, MEGA_STONES)
+ensureDalDbInit().catch(err => console.error('[DB] 初始化失败:', err))
 
 const TYPE_CHART = {
   '一般': { 一般: 1, 火: 1, 水: 1, 电: 1, 草: 1, 冰: 1, 格斗: 1, 毒: 1, 地面: 1, 飞行: 1, 超能力: 1, 虫: 1, 岩石: 0.5, 幽灵: 0, 龙: 1, 恶: 1, 钢: 0.5, 妖精: 1 },
@@ -138,12 +54,6 @@ function getTypeEffectivenessText(multiplier) {
   return ''
 }
 
-function getPokemonRarity(name) {
-  const base = pokemonBaseData[name]
-  if (!base) return 'common'
-  return base.rarity || 'common'
-}
-
 function generateIVs(isShiny = false) {
   const iv = () => isShiny ? 31 : Math.floor(Math.random() * 32)
   return {
@@ -154,22 +64,6 @@ function generateIVs(isShiny = false) {
     特防: iv(),
     速度: iv()
   }
-}
-
-function getPokemonData(name) {
-  // 如果 pokemonBaseData 为空但 POKEMON_STATS 已加载，重新适配
-  if (Object.keys(pokemonBaseData).length === 0 && Object.keys(POKEMON_STATS).length > 0) {
-    const freshData = pokemonBaseDataAdapter(POKEMON_STATS, EVOLUTION_DATA, MEGA_STONES)
-    Object.assign(pokemonBaseData, freshData)
-  }
-  return pokemonBaseData[name] || null
-}
-
-function getPokemonTypes(name) {
-  const data = getPokemonData(name)
-  if (!data) return ['一般']
-  if (data.mega && data.mega.types) return data.mega.types
-  return data.types || ['一般']
 }
 
 class Pokemon {
@@ -183,23 +77,41 @@ class Pokemon {
       level = levelOrOptions
     }
     
-    const baseData = getPokemonData(name)
-    if (!baseData) {
+    const dbPokemon = pokemonDAL.getPokemonByName(name)
+    if (!dbPokemon) {
       throw new Error(`未找到宝可梦数据: ${name}`)
     }
+    
+    const baseStats = {
+      HP: dbPokemon.hpBase || 40,
+      攻击: dbPokemon.attackBase || 40,
+      防御: dbPokemon.defenseBase || 40,
+      特攻: dbPokemon.spAttackBase || 40,
+      特防: dbPokemon.spDefenseBase || 40,
+      速度: dbPokemon.speedBase || 40
+    }
+    
+    const types = []
+    if (dbPokemon.type1) types.push(dbPokemon.type1)
+    if (dbPokemon.type2 && dbPokemon.type2 !== dbPokemon.type1) types.push(dbPokemon.type2)
+    
+    const legendary = dbPokemon.legendaryCategory
+    let rarity = 'common'
+    if (legendary === 'legendary' || legendary === 'mythical') rarity = 'legendary'
+    else if (legendary === 'pseudo_legendary') rarity = 'epic'
     
     this.name = name
     this.level = level
     this.isInitial = options.isInitial || false
     this.isRented = options.isRented || false
-    this.rarity = getPokemonRarity(name)
+    this.rarity = rarity
     
-    this.baseData = baseData
-    this.types = baseData.types || ['一般']
-    this.baseStats = baseData.baseStats
-    this.growthRate = baseData.growthRate || 'medium'
-    this.evolution = baseData.evolution || null
-    this.megaData = baseData.mega || null
+    this.baseData = dbPokemon
+    this.types = types.length > 0 ? types : ['一般']
+    this.baseStats = baseStats
+    this.growthRate = dbPokemon.growthRate || 'medium'
+    this.evolution = null
+    this.megaData = null
     
     this.isMega = options.isMega || false
     this.megaStone = options.megaStone || null
@@ -530,9 +442,8 @@ class Pokemon {
   }
   
   _checkLevelUpMoves() {
-    const { getPokemonLevelMoves } = require('../data/pokemonData')
-    const allMoves = getPokemonLevelMoves(this.name, this.level)
-    const previousMoves = getPokemonLevelMoves(this.name, this.level - 1)
+    const allMoves = pokemonDAL.getPokemonLevelMoves(this.baseData.id).filter(m => m.level <= this.level).map(m => m.name)
+    const previousMoves = pokemonDAL.getPokemonLevelMoves(this.baseData.id).filter(m => m.level <= this.level - 1).map(m => m.name)
     
     const newMoves = allMoves.filter(m => !previousMoves.includes(m))
     
@@ -544,16 +455,14 @@ class Pokemon {
   }
   
   _getNewMovesAtLevel(level) {
-    const { getPokemonLevelMoves } = require('../data/pokemonData')
-    const allMoves = getPokemonLevelMoves(this.name, level)
-    const previousMoves = getPokemonLevelMoves(this.name, level - 1)
+    const allMoves = pokemonDAL.getPokemonLevelMoves(this.baseData.id).filter(m => m.level <= level).map(m => m.name)
+    const previousMoves = pokemonDAL.getPokemonLevelMoves(this.baseData.id).filter(m => m.level <= level - 1).map(m => m.name)
     
     return allMoves.filter(m => !previousMoves.includes(m))
   }
   
   learnMove(moveName) {
-    const { getMoveData } = require('../data/pokemonData')
-    const moveData = getMoveData(moveName)
+    const moveData = pokemonDAL.getMoveByName(moveName)
     if (!moveData) return false
     
     if (this.moves.length < this.maxMoves) {
@@ -567,8 +476,7 @@ class Pokemon {
   
   replaceMove(oldIndex, newMoveName) {
     if (oldIndex < 0 || oldIndex >= this.moves.length) return false
-    const { getMoveData } = require('../data/pokemonData')
-    const moveData = getMoveData(newMoveName)
+    const moveData = pokemonDAL.getMoveByName(newMoveName)
     if (!moveData) return false
     const oldMove = this.moves[oldIndex]
     if (oldMove) {
@@ -580,8 +488,8 @@ class Pokemon {
   }
   
   _initializeMoves() {
-    const { getPokemonLevelMoves } = require('../data/pokemonData')
-    const available = getPokemonLevelMoves(this.name, this.level)
+    const levelMoves = pokemonDAL.getPokemonLevelMoves(this.baseData.id)
+    const available = levelMoves.filter(m => m.level <= this.level).map(m => m.name)
     
     if (available.length === 0) {
       return ['撞击']
@@ -591,10 +499,9 @@ class Pokemon {
   }
   
   _initializePP() {
-    const { getMoveData } = require('../data/pokemonData')
     const pp = {}
     for (const moveName of this.moves) {
-      const moveData = getMoveData(moveName)
+      const moveData = pokemonDAL.getMoveByName(moveName)
       pp[moveName] = moveData ? moveData.pp : 10
     }
     return pp
@@ -605,15 +512,13 @@ class Pokemon {
   }
   
   getMoveMaxPP(moveName) {
-    const { getMoveData } = require('../data/pokemonData')
-    const moveData = getMoveData(moveName)
+    const moveData = pokemonDAL.getMoveByName(moveName)
     return moveData ? moveData.pp : 10
   }
   
   useMovePP(moveName) {
-    const { getMoveData } = require('../data/pokemonData')
     if (this.movePP[moveName] === undefined) {
-      const moveData = getMoveData(moveName)
+      const moveData = pokemonDAL.getMoveByName(moveName)
       this.movePP[moveName] = moveData ? moveData.pp : 10
     }
     if (this.movePP[moveName] > 0) {
@@ -624,8 +529,7 @@ class Pokemon {
   }
   
   restoreMovePP(moveName) {
-    const { getMoveData } = require('../data/pokemonData')
-    const moveData = getMoveData(moveName)
+    const moveData = pokemonDAL.getMoveByName(moveName)
     if (moveData) {
       this.movePP[moveName] = moveData.pp
       return true
@@ -772,7 +676,7 @@ class Pokemon {
     const typeStr = this.types.join('/')
     const ivStr = Object.entries(this.ivs).map(([k, v]) => `${k.slice(0, 2)}:${v}`).join(' ')
     const evStr = Object.entries(this.evs).filter(([k, v]) => v > 0).map(([k, v]) => `${k.slice(0, 2)}:${v}`).join(' ')
-    const movesStr = this.moves.map(m => `${m}(${this.movePP[m] || 0}/${MOVE_DATABASE[m]?.pp || 10})`).join(', ')
+    const movesStr = this.moves.map(m => `${m}(${this.movePP[m] || 0}/${this.getMoveMaxPP(m)})`).join(', ')
     
     return [
       `【${this.name}】 Lv.${this.level} (${typeStr})${this.isMega ? ' MEGA' : ''}`,
@@ -856,24 +760,17 @@ function calculateCaptureRate(pokemonName, ballType) {
 }
 
 module.exports = {
-  Player,
   Pokemon,
+  Player,
   Backpack,
   Belt,
-  INITIAL_POKEMON,
   TYPE_CHART,
   STATUS_EFFECTS,
   getTypeMultiplier,
   getTypeEffectivenessText,
-  getPokemonData,
-  getPokemonTypes,
-  getPokemonRarity,
   generateIVs,
   calculateCaptureRate,
   ITEM_CONFIG,
   RARITY_COLORS,
-  MOVE_DATABASE,
-  LEARNABLE_MOVES,
-  EVOLUTION_DATA,
-  MEGA_STONES
+  pokemonDAL
 }

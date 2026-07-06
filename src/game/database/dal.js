@@ -1,5 +1,9 @@
 const db = require('./db')
 
+async function ensureDbInit() {
+  await db.init()
+}
+
 class PlayerDAL {
   // 获取所有玩家
   getAllPlayers() {
@@ -331,6 +335,45 @@ class PokemonDAL {
     return rows.map(row => this._rowToMove(row))
   }
 
+  getAllMovesAsMap() {
+    const moves = this.getAllMoves()
+    const map = {}
+    for (const move of moves) {
+      map[move.name] = move
+    }
+    return map
+  }
+
+  getMoveEffectByName(name) {
+    const move = this.getMoveByName(name)
+    if (!move) return null
+    
+    const effect = {}
+    if (move.effectType) effect.effectType = move.effectType
+    if (move.effectTarget) effect.effectTarget = move.effectTarget
+    if (move.effectStat) effect.effectStat = move.effectStat
+    if (move.effectValue !== undefined && move.effectValue !== null) effect.effectValue = move.effectValue
+    if (move.effectDuration !== undefined && move.effectDuration !== null) effect.effectDuration = move.effectDuration
+    if (move.priority !== undefined && move.priority !== null) effect.priority = move.priority
+    if (move.hits !== undefined && move.hits !== null) effect.hits = move.hits
+    
+    return Object.keys(effect).length > 0 ? effect : null
+  }
+
+  getPokemonByNameWithMoves(name) {
+    const pokemon = this.getPokemonByName(name)
+    if (!pokemon) return null
+    
+    const levelMoves = this.getPokemonLevelMoves(pokemon.id)
+    const tmMoves = this.getPokemonTMs(pokemon.id)
+    
+    return {
+      ...pokemon,
+      levelMoves: levelMoves,
+      tmMoves: tmMoves
+    }
+  }
+
   createPersonalPokemon(pokemonId, userId, options = {}) {
     const now = new Date().toISOString()
     const result = db.run(`
@@ -533,5 +576,6 @@ module.exports = {
   playerDAL,
   gameStateDAL,
   listingDAL,
-  pokemonDAL
+  pokemonDAL,
+  ensureDbInit
 }

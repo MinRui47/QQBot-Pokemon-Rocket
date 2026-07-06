@@ -348,6 +348,175 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pc_user ON player_collections(user_id)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pc_collection ON player_collections(collection_id)`)
 
+    // 数据字典表 - 通用配置键值对
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS config_dictionary (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        config_key TEXT UNIQUE NOT NULL,
+        config_group TEXT NOT NULL,
+        config_value TEXT,
+        description TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_cd_key ON config_dictionary(config_key)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_cd_group ON config_dictionary(config_group)`)
+
+    // 属性克制关系表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS type_chart (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        attacker_type TEXT NOT NULL,
+        defender_type TEXT NOT NULL,
+        multiplier REAL NOT NULL DEFAULT 1.0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(attacker_type, defender_type)
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_tc_attacker ON type_chart(attacker_type)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_tc_defender ON type_chart(defender_type)`)
+
+    // 状态效果表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS status_effects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        status_key TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        damage REAL DEFAULT 0,
+        message TEXT,
+        lasts INTEGER DEFAULT -1,
+        attack_mod REAL DEFAULT 1.0,
+        speed_mod REAL DEFAULT 1.0,
+        skip_turn INTEGER DEFAULT 0,
+        skip_chance REAL DEFAULT 0,
+        grow INTEGER DEFAULT 0,
+        self_damage INTEGER DEFAULT 0,
+        description TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_se_key ON status_effects(status_key)`)
+
+    // 稀有度配置表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS rarity_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rarity_key TEXT UNIQUE NOT NULL,
+        color TEXT,
+        name TEXT,
+        base_price INTEGER DEFAULT 0,
+        description TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_rc_key ON rarity_config(rarity_key)`)
+
+    // 地图位置表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS map_locations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        description TEXT,
+        location_type TEXT DEFAULT 'wild',
+        difficulty INTEGER DEFAULT 1,
+        level_min INTEGER DEFAULT 3,
+        level_max INTEGER DEFAULT 10,
+        pokemon_types TEXT DEFAULT '[]',
+        features TEXT DEFAULT '[]',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_ml_name ON map_locations(name)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_ml_difficulty ON map_locations(difficulty)`)
+
+    // 地图连接表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS map_connections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_location TEXT NOT NULL,
+        north TEXT,
+        east TEXT,
+        south TEXT,
+        west TEXT,
+        FOREIGN KEY (from_location) REFERENCES map_locations(name),
+        UNIQUE(from_location)
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mc_from ON map_connections(from_location)`)
+
+    // 地图配置表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS map_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        map_name TEXT UNIQUE NOT NULL,
+        difficulty TEXT DEFAULT '简单',
+        steps_min INTEGER DEFAULT 30,
+        steps_max INTEGER DEFAULT 45,
+        encounter_rate REAL DEFAULT 0.3,
+        trainer_rate REAL DEFAULT 0.1,
+        locations TEXT DEFAULT '[]',
+        pokemon_pool TEXT DEFAULT '[]',
+        item_pool TEXT DEFAULT '[]',
+        silver_points TEXT DEFAULT '[]',
+        gold_points TEXT DEFAULT '[]',
+        unlock_condition TEXT,
+        level_min INTEGER DEFAULT 3,
+        level_max INTEGER DEFAULT 10,
+        start_location TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mc_name ON map_config(map_name)`)
+
+    // 品质概率配置表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS rarity_probability (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        difficulty INTEGER NOT NULL,
+        rarity_key TEXT NOT NULL,
+        probability REAL NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(difficulty, rarity_key)
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_rp_difficulty ON rarity_probability(difficulty)`)
+
+    // 藏品名称库表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS collection_names (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rarity_key TEXT NOT NULL,
+        name TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_cn_rarity ON collection_names(rarity_key)`)
+
+    // 勋章配置表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS medal_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        medal_key TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        icon TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mc_key ON medal_config(medal_key)`)
+
+    // 初始宝可梦表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS initial_pokemon (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pokemon_name TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_ip_pokemon ON initial_pokemon(pokemon_name)`)
+
     // 保存数据库
     this.save()
 
