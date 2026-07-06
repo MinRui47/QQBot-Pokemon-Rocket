@@ -1,0 +1,29 @@
+{
+  "name": "qq-channel-bot",
+  "version": "1.0.0",
+  "description": "QQ Channel Bot",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "build-pokedex": "node src/build_pokedex.js",
+    "preload": "node src/preload.js",
+    "preload:all": "node src/preload.js 1 1025"
+  },
+  "keywords": [
+    "qq",
+    "channel",
+    "bot"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "form-data": "^4.0.6",
+    "sql.js": "^1.14.1",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
