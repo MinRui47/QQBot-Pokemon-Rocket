@@ -87,7 +87,7 @@ async function importPokemonData() {
           hp_base, attack_base, defense_base, sp_attack_base, sp_defense_base, speed_base,
           stat_total, abilities, hidden_ability, evolution_chain, flavor_text, legendary_category
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         pokemonData.name,
         pokemonData.englishName || '',

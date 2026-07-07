@@ -2,15 +2,23 @@ const db = require('./database/db')
 
 let typeChartCache = null
 let statusEffectsCache = null
+let abilitiesCache = null
 let rarityConfigCache = null
 let rarityProbabilityCache = null
 let collectionNamesCache = null
 let medalsCache = null
 let initialPokemonCache = null
 
+async function ensureDbInit() {
+  if (!db.initialized) {
+    await db.init()
+  }
+}
+
 async function loadTypeChart() {
   if (typeChartCache) return typeChartCache
   
+  await ensureDbInit()
   const rows = db.all('SELECT attacker_type, defender_type, multiplier FROM type_chart')
   const chart = {}
   
@@ -37,6 +45,7 @@ async function loadTypeChart() {
 async function loadStatusEffects() {
   if (statusEffectsCache) return statusEffectsCache
   
+  await ensureDbInit()
   const rows = db.all('SELECT * FROM status_effects')
   const effects = {}
   
@@ -60,9 +69,33 @@ async function loadStatusEffects() {
   return effects
 }
 
+async function loadAbilities() {
+  if (abilitiesCache) return abilitiesCache
+  
+  await ensureDbInit()
+  const rows = db.all('SELECT * FROM abilities')
+  const abilities = {}
+  
+  for (const row of rows) {
+    abilities[row.name] = {
+      name: row.name,
+      englishName: row.english_name,
+      japaneseName: row.japanese_name,
+      description: row.description,
+      effect: row.effect,
+      generation: row.generation,
+      isHidden: row.is_hidden === 1
+    }
+  }
+  
+  abilitiesCache = abilities
+  return abilities
+}
+
 async function loadRarityConfig() {
   if (rarityConfigCache) return rarityConfigCache
   
+  await ensureDbInit()
   const rows = db.all('SELECT * FROM rarity_config')
   const config = {}
   
@@ -82,6 +115,7 @@ async function loadRarityConfig() {
 async function loadRarityProbability() {
   if (rarityProbabilityCache) return rarityProbabilityCache
   
+  await ensureDbInit()
   const rows = db.all('SELECT difficulty, rarity_key, probability FROM rarity_probability')
   const config = {}
   
@@ -99,6 +133,7 @@ async function loadRarityProbability() {
 async function loadCollectionNames() {
   if (collectionNamesCache) return collectionNamesCache
   
+  await ensureDbInit()
   const rows = db.all('SELECT rarity_key, name FROM collection_names')
   const names = {}
   
@@ -116,6 +151,7 @@ async function loadCollectionNames() {
 async function loadMedals() {
   if (medalsCache) return medalsCache
   
+  await ensureDbInit()
   const rows = db.all('SELECT medal_key, name, description, icon FROM medal_config')
   const medals = {}
   
@@ -134,6 +170,7 @@ async function loadMedals() {
 async function loadInitialPokemon() {
   if (initialPokemonCache) return initialPokemonCache
   
+  await ensureDbInit()
   const rows = db.all('SELECT pokemon_name, sort_order FROM initial_pokemon ORDER BY sort_order ASC')
   initialPokemonCache = rows.map(row => row.pokemon_name)
   return initialPokemonCache
@@ -143,6 +180,7 @@ async function loadAllConfigs() {
   await Promise.all([
     loadTypeChart(),
     loadStatusEffects(),
+    loadAbilities(),
     loadRarityConfig(),
     loadRarityProbability(),
     loadCollectionNames(),
@@ -156,6 +194,7 @@ async function loadAllConfigs() {
 function clearCache() {
   typeChartCache = null
   statusEffectsCache = null
+  abilitiesCache = null
   rarityConfigCache = null
   rarityProbabilityCache = null
   collectionNamesCache = null
@@ -168,6 +207,7 @@ function clearCache() {
 module.exports = {
   loadTypeChart,
   loadStatusEffects,
+  loadAbilities,
   loadRarityConfig,
   loadRarityProbability,
   loadCollectionNames,

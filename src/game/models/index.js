@@ -110,7 +110,7 @@ class Pokemon {
     this.types = types.length > 0 ? types : ['一般']
     this.baseStats = baseStats
     this.growthRate = dbPokemon.growthRate || 'medium'
-    this.evolution = null
+    this.evolution = this._parseEvolutionChain(dbPokemon.evolutionChain)
     this.megaData = null
     
     this.isMega = options.isMega || false
@@ -487,6 +487,29 @@ class Pokemon {
     return true
   }
   
+  _parseEvolutionChain(evolutionChain) {
+    if (!evolutionChain || !Array.isArray(evolutionChain) || evolutionChain.length === 0) {
+      return null
+    }
+    
+    const currentIndex = evolutionChain.findIndex(e => e.name === this.name)
+    if (currentIndex === -1 || currentIndex >= evolutionChain.length - 1) {
+      return null
+    }
+    
+    const nextStage = evolutionChain[currentIndex + 1]
+    const condition = nextStage.condition || ''
+    const levelMatch = condition.match(/等级(\d+)以上/)
+    const level = levelMatch ? parseInt(levelMatch[1]) : 16
+    
+    return {
+      level: level,
+      into: nextStage.name,
+      method: levelMatch ? 'level' : 'item',
+      item: levelMatch ? null : condition
+    }
+  }
+  
   _initializeMoves() {
     const levelMoves = pokemonDAL.getPokemonLevelMoves(this.baseData.id)
     const available = levelMoves.filter(m => m.level <= this.level).map(m => m.name)
@@ -622,12 +645,31 @@ class Pokemon {
     if (!this.canEvolve()) return false
     
     const oldName = this.name
-    this.name = this.evolution.into
-    this.baseData = getPokemonData(this.name)
-    this.types = this.baseData.types
-    this.baseStats = this.baseData.baseStats
-    this.evolution = this.baseData.evolution
-    this.megaData = this.baseData.mega
+    const newName = this.evolution.into
+    const newBaseData = pokemonDAL.getPokemonByName(newName)
+    
+    if (!newBaseData) return false
+    
+    this.name = newName
+    this.baseData = newBaseData
+    
+    this.baseStats = {
+      HP: newBaseData.hpBase || newBaseData.baseStats?.HP || 40,
+      攻击: newBaseData.attackBase || newBaseData.baseStats?.攻击 || 40,
+      防御: newBaseData.defenseBase || newBaseData.baseStats?.防御 || 40,
+      特攻: newBaseData.spAttackBase || newBaseData.baseStats?.特攻 || 40,
+      特防: newBaseData.spDefenseBase || newBaseData.baseStats?.特防 || 40,
+      速度: newBaseData.speedBase || newBaseData.baseStats?.速度 || 40
+    }
+    
+    this.types = []
+    if (newBaseData.type1) this.types.push(newBaseData.type1)
+    if (newBaseData.type2 && newBaseData.type2 !== newBaseData.type1) this.types.push(newBaseData.type2)
+    if (this.types.length === 0) this.types = ['一般']
+    
+    this.evolution = this._parseEvolutionChain(newBaseData.evolutionChain)
+    this.megaData = null
+    
     this.stats = this._calculateStats()
     this.maxHp = this.stats.HP
     this.hp = Math.min(this.maxHp, this.hp)
