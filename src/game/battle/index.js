@@ -2,6 +2,7 @@ const { Pokemon, calculateCaptureRate, ITEM_CONFIG, RARITY_COLORS } = require('.
 const { MEDALS } = require('../map')
 const { getMoveData, getPokemonTypes, getPokemonBaseStats } = require('../dataService')
 const { loadTypeChart, loadStatusEffects, loadAbilities } = require('../configCache')
+const { mapStateDAL } = require('../database/dal')
 
 const BattleConfig = {
   TYPE_CHART: {},
@@ -131,15 +132,31 @@ class BattleSystem {
       if (searchRewards.length > 0) {
         result.message += `\n搜刮到：${searchRewards.map(r => r.type === 'item' ? `${r.name} x${r.quantity}` : `${r.amount} 金币`).join('、')}`
       }
+      
+      this._updateWildEncounterState(wild.name, true)
     } else {
       result.message += `\n\n【失败】${playerPokemon.name} 被击败！${wild.name} 逃走了...`
       const recentTurns = battleResult.log.slice(-6)
       for (const line of recentTurns) {
         result.message += '\n' + line
       }
+      
+      this._updateWildEncounterState(wild.name, false)
     }
     
     return result
+  }
+  
+  _updateWildEncounterState(pokemonName, defeated) {
+    if (!this.player.currentGame || !this.player.currentGame.map) return
+    const map = this.player.currentGame.map
+    if (!map.instanceId) return
+    
+    if (defeated) {
+      mapStateDAL.defeatWildEncounter(map.instanceId, map.currentLocation, pokemonName)
+    } else {
+      mapStateDAL.fleeWildEncounter(map.instanceId, map.currentLocation, pokemonName)
+    }
   }
   
   async startTrainerBattle(trainer) {
@@ -159,7 +176,7 @@ class BattleSystem {
     let battleLog = []
     
     while (trainerPokemonIndex < trainer.pokemon.length && currentPlayerPokemon) {
-      const trainerPokemon = new Pokemon(trainer.pokemon[trainerPokemonIndex].name, trainer.pokemon[trainerPokemonIndex].level)
+      const trainerPokemon = new Pokemon(trainer.pokemon[trainerPokemonIndex].name, trainer.pokemon[trainerPokemonIndex].level, { isInitial: true })
       
       const obedienceCheck = this._checkObedience(currentPlayerPokemon)
       if (!obedienceCheck.obedient) {
@@ -235,11 +252,23 @@ class BattleSystem {
         
         result.message += `\n\n输入"抢夺"查看训练家的装备，可获取其腰带精灵、背包物品或更换背包`
       }
+      
+      this._updateTrainerState(trainer.name, true)
     } else {
       result.message += '\n\n【失败】战斗失败！'
     }
     
     return result
+  }
+  
+  _updateTrainerState(trainerName, defeated) {
+    if (!this.player.currentGame || !this.player.currentGame.map) return
+    const map = this.player.currentGame.map
+    if (!map.instanceId) return
+    
+    if (defeated) {
+      mapStateDAL.defeatTrainer(map.instanceId, map.currentLocation, trainerName)
+    }
   }
   
   getBattleOptions() {

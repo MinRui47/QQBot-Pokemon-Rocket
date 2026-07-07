@@ -1,6 +1,7 @@
 const { ITEM_CONFIG } = require('../config')
 const { getPokemonRarity } = require('../utils')
 const { loadRarityProbability, loadCollectionNames, loadRarityConfig } = require('../configCache')
+const { mapStateDAL } = require('../database/dal')
 
 let RARITY_PROBABILITY = {}
 let COLLECTION_NAMES = {}
@@ -408,8 +409,9 @@ class MapPoint {
 }
 
 class GameMap {
-  constructor(mapTier) {
+  constructor(mapTier, userId = null) {
     this.tier = mapTier
+    this.userId = userId
     this.config = MAP_CONFIG[mapTier]
     this.currentLocation = this.config.startLocation || this.config.locations[0]
     this.points = this._generatePoints()
@@ -417,6 +419,44 @@ class GameMap {
     this.currentBuilding = null
     this.currentFloor = 0
     this.exploredFeatures = new Set()
+    this.instanceId = null
+    
+    if (userId) {
+      this._loadOrCreateInstance()
+    }
+  }
+  
+  _loadOrCreateInstance() {
+    const existing = mapStateDAL.getMapInstance(this.userId)
+    if (existing) {
+      this.instanceId = existing.id
+      this.currentLocation = existing.currentLocation
+      this.currentBuilding = existing.currentBuilding
+      this.currentFloor = existing.currentFloor
+      this.exploredLocations = new Set(existing.exploredLocations)
+      this.exploredFeatures = new Set(existing.exploredFeatures)
+      const visitedPoints = existing.visitedPoints || []
+      for (const point of this.points) {
+        if (visitedPoints.includes(point.name)) {
+          point.visited = true
+        }
+      }
+    } else {
+      const instance = mapStateDAL.createMapInstance(this.userId, this.tier, this.currentLocation)
+      this.instanceId = instance.id
+    }
+  }
+  
+  _saveInstance() {
+    if (!this.instanceId) return
+    mapStateDAL.updateMapInstance(this.instanceId, {
+      currentLocation: this.currentLocation,
+      currentBuilding: this.currentBuilding,
+      currentFloor: this.currentFloor,
+      exploredLocations: [...this.exploredLocations],
+      exploredFeatures: [...this.exploredFeatures],
+      visitedPoints: this.points.filter(p => p.visited).map(p => p.name)
+    })
   }
   
   _generatePoints() {
@@ -497,6 +537,8 @@ class GameMap {
       return { moved: false, message: `该区域不在当前地图范围内！`, location: this.currentLocation }
     }
     
+    this._fleeWildEncounters()
+    
     this.exploredLocations.add(newLocation)
     this.currentLocation = newLocation
     
@@ -510,6 +552,9 @@ class GameMap {
     }
     
     const locationInfo = MAP_LOCATIONS[newLocation] || {}
+    const droppedItems = this._getDroppedItemsAtLocation(newLocation)
+    
+    this._saveInstance()
     
     return {
       moved: true,
@@ -517,8 +562,22 @@ class GameMap {
       location: newLocation,
       locationInfo: locationInfo,
       foundPoint: pointMessage ? nearbyPoints.find(p => p.name === pointMessage.match(/「([^」]+)」/)[1]) : null,
-      features: this.getAvailableFeatures()
+      features: this.getAvailableFeatures(),
+      droppedItems: droppedItems
     }
+  }
+  
+  _fleeWildEncounters() {
+    if (!this.instanceId) return
+    const encounters = mapStateDAL.getCurrentWildEncounters(this.instanceId, this.currentLocation)
+    for (const encounter of encounters) {
+      mapStateDAL.fleeWildEncounter(this.instanceId, this.currentLocation, encounter.pokemonName)
+    }
+  }
+  
+  _getDroppedItemsAtLocation(locationName) {
+    if (!this.instanceId) return []
+    return mapStateDAL.getDroppedItems(this.instanceId, locationName)
   }
   
   enterFeature(featureName) {
@@ -964,11 +1023,14 @@ class GameMap {
       return { success: false, message: `「${featureName}」无法搜索！` }
     }
     
-    if (this.exploredFeatures.has(featureName)) {
+    if (this.exploredFeatures.has(featureName) || (this.instanceId && mapStateDAL.isLocationSearched(this.instanceId, this.currentLocation, featureName))) {
       return { success: false, message: `「${featureName}」已经搜索过了！` }
     }
     
     this.exploredFeatures.add(featureName)
+    if (this.instanceId) {
+      mapStateDAL.markLocationSearched(this.instanceId, this.currentLocation, featureName)
+    }
     
     const rewards = []
     const messages = []
@@ -1003,11 +1065,25 @@ class GameMap {
     }
     
     if (Math.random() < this.config.encounterRate) {
-      return { type: 'wild', pokemon: this._generateWildPokemon() }
+      const pokemon = this._generateWildPokemon()
+      if (this.instanceId) {
+        mapStateDAL.addWildEncounter(this.instanceId, this.currentLocation, pokemon.name, pokemon.level)
+      }
+      return { type: 'wild', pokemon: pokemon }
     }
     
     if (Math.random() < this.config.trainerRate) {
-      return { type: 'trainer', trainer: this._generateTrainer() }
+      const activeTrainers = this.instanceId ? mapStateDAL.getActiveTrainers(this.instanceId, this.currentLocation) : []
+      if (activeTrainers.length > 0) {
+        const trainer = activeTrainers[0].trainerData
+        return { type: 'trainer', trainer: trainer }
+      }
+      
+      const trainer = this._generateTrainer()
+      if (this.instanceId) {
+        mapStateDAL.addTrainer(this.instanceId, this.currentLocation, trainer)
+      }
+      return { type: 'trainer', trainer: trainer }
     }
     
     return null

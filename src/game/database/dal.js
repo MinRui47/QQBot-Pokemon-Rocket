@@ -50,6 +50,7 @@ class PlayerDAL {
       player.backpack, player.belt, player.equipped_backpack, player.unlocked_maps,
       player.evacuation_total, player.successful_evacuations
     ])
+    db.save()
 
     return this._rowToPlayer(player)
   }
@@ -102,12 +103,14 @@ class PlayerDAL {
       now,
       player.userId
     ])
+    db.save()
   }
 
   // 删除玩家
   deletePlayer(userId) {
     db.run('DELETE FROM players WHERE user_id = ?', [userId])
     db.run('DELETE FROM game_states WHERE user_id = ?', [userId])
+    db.save()
   }
 
   // 将数据库行转换为玩家对象
@@ -183,11 +186,13 @@ class GameStateDAL {
         now
       ])
     }
+    db.save()
   }
 
   // 删除玩家游戏状态
   deleteGameState(userId) {
     db.run('DELETE FROM game_states WHERE user_id = ?', [userId])
+    db.save()
   }
 
   // 获取所有进行中的游戏
@@ -231,6 +236,7 @@ class ListingDAL {
       INSERT INTO listings (seller_id, item_type, item_name, item_data, quantity, price)
       VALUES (?, ?, ?, ?, ?, ?)
     `, [sellerId, itemType, itemName, JSON.stringify(itemData), quantity, price])
+    db.save()
     return result
   }
 
@@ -253,6 +259,7 @@ class ListingDAL {
   // 删除上架物品
   deleteListing(listingId) {
     db.run('DELETE FROM listings WHERE id = ?', [listingId])
+    db.save()
   }
 
   // 获取卖家的所有上架物品
@@ -410,6 +417,7 @@ class PokemonDAL {
       now,
       now
     ])
+    db.save()
     return result
   }
 
@@ -455,10 +463,12 @@ class PokemonDAL {
     params.push(id)
 
     db.run(`UPDATE personal_pokemon SET ${updates.join(', ')}, updated_at = ? WHERE id = ?`, params)
+    db.save()
   }
 
   deletePersonalPokemon(id) {
     db.run('DELETE FROM personal_pokemon WHERE id = ?', [id])
+    db.save()
   }
 
   _rowToPokemon(row) {
@@ -566,10 +576,205 @@ class PokemonDAL {
   }
 }
 
+class MapStateDAL {
+  createMapInstance(userId, mapTier, startLocation) {
+    const now = new Date().toISOString()
+    db.run(`
+      INSERT OR REPLACE INTO map_instances (user_id, map_tier, current_location, current_building, current_floor, 
+        explored_locations, explored_features, visited_points, state, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [userId, mapTier, startLocation, null, 0, JSON.stringify([startLocation]), '[]', '[]', 'active', now, now])
+    db.save()
+    
+    const instance = db.get('SELECT * FROM map_instances WHERE user_id = ?', [userId])
+    return this._rowToMapInstance(instance)
+  }
+
+  getMapInstance(userId) {
+    const row = db.get('SELECT * FROM map_instances WHERE user_id = ? AND state = ?', [userId, 'active'])
+    if (!row) return null
+    return this._rowToMapInstance(row)
+  }
+
+  updateMapInstance(instanceId, data) {
+    const now = new Date().toISOString()
+    const updates = []
+    const params = []
+
+    if (data.currentLocation !== undefined) { updates.push('current_location = ?'); params.push(data.currentLocation) }
+    if (data.currentBuilding !== undefined) { updates.push('current_building = ?'); params.push(data.currentBuilding) }
+    if (data.currentFloor !== undefined) { updates.push('current_floor = ?'); params.push(data.currentFloor) }
+    if (data.exploredLocations !== undefined) { updates.push('explored_locations = ?'); params.push(JSON.stringify(data.exploredLocations)) }
+    if (data.exploredFeatures !== undefined) { updates.push('explored_features = ?'); params.push(JSON.stringify(data.exploredFeatures)) }
+    if (data.visitedPoints !== undefined) { updates.push('visited_points = ?'); params.push(JSON.stringify(data.visitedPoints)) }
+    if (data.state !== undefined) { updates.push('state = ?'); params.push(data.state) }
+
+    params.push(now)
+    params.push(instanceId)
+
+    db.run(`UPDATE map_instances SET ${updates.join(', ')}, updated_at = ? WHERE id = ?`, params)
+    db.save()
+  }
+
+  endMapInstance(userId) {
+    db.run('UPDATE map_instances SET state = ?, updated_at = ? WHERE user_id = ?', ['ended', new Date().toISOString(), userId])
+    db.save()
+  }
+
+  deleteMapInstance(userId) {
+    const instance = db.get('SELECT id FROM map_instances WHERE user_id = ?', [userId])
+    if (instance) {
+      db.run('DELETE FROM map_dropped_items WHERE instance_id = ?', [instance.id])
+      db.run('DELETE FROM map_locations_state WHERE instance_id = ?', [instance.id])
+      db.run('DELETE FROM map_trainers WHERE instance_id = ?', [instance.id])
+      db.run('DELETE FROM map_wild_encounters WHERE instance_id = ?', [instance.id])
+      db.run('DELETE FROM map_instances WHERE id = ?', [instance.id])
+      db.save()
+    }
+  }
+
+  markLocationSearched(instanceId, locationName, featureName) {
+    const existing = db.get('SELECT id FROM map_locations_state WHERE instance_id = ? AND location_name = ? AND feature_name = ?', [instanceId, locationName, featureName])
+    if (existing) {
+      db.run('UPDATE map_locations_state SET is_searched = ?, searched_at = ? WHERE id = ?', [1, new Date().toISOString(), existing.id])
+    } else {
+      db.run('INSERT INTO map_locations_state (instance_id, location_name, feature_name, is_searched, searched_at) VALUES (?, ?, ?, ?, ?)', [instanceId, locationName, featureName, 1, new Date().toISOString()])
+    }
+    db.save()
+  }
+
+  isLocationSearched(instanceId, locationName, featureName) {
+    const row = db.get('SELECT is_searched FROM map_locations_state WHERE instance_id = ? AND location_name = ? AND feature_name = ?', [instanceId, locationName, featureName])
+    return row && row.is_searched === 1
+  }
+
+  getAllSearchedLocations(instanceId) {
+    const rows = db.all('SELECT location_name, feature_name FROM map_locations_state WHERE instance_id = ? AND is_searched = 1', [instanceId])
+    return rows.map(r => ({ location: r.location_name, feature: r.feature_name }))
+  }
+
+  dropItem(instanceId, locationName, itemName, quantity, itemData = {}) {
+    db.run('INSERT INTO map_dropped_items (instance_id, location_name, item_name, quantity, item_data, dropped_at) VALUES (?, ?, ?, ?, ?, ?)', [instanceId, locationName, itemName, quantity, JSON.stringify(itemData), new Date().toISOString()])
+    db.save()
+  }
+
+  getDroppedItems(instanceId, locationName) {
+    const rows = db.all('SELECT * FROM map_dropped_items WHERE instance_id = ? AND location_name = ? AND is_picked = 0', [instanceId, locationName])
+    return rows.map(this._rowToDroppedItem)
+  }
+
+  pickItem(itemId) {
+    db.run('UPDATE map_dropped_items SET is_picked = ?, picked_at = ? WHERE id = ?', [1, new Date().toISOString(), itemId])
+    db.save()
+  }
+
+  addTrainer(instanceId, locationName, trainer) {
+    const existing = db.get('SELECT id FROM map_trainers WHERE instance_id = ? AND location_name = ? AND trainer_name = ?', [instanceId, locationName, trainer.name])
+    if (!existing) {
+      db.run('INSERT INTO map_trainers (instance_id, location_name, trainer_name, trainer_title, trainer_data) VALUES (?, ?, ?, ?, ?)', [instanceId, locationName, trainer.name, trainer.title || '', JSON.stringify(trainer)])
+      db.save()
+    }
+  }
+
+  getTrainer(instanceId, locationName, trainerName) {
+    const row = db.get('SELECT * FROM map_trainers WHERE instance_id = ? AND location_name = ? AND trainer_name = ?', [instanceId, locationName, trainerName])
+    if (!row) return null
+    return this._rowToTrainer(row)
+  }
+
+  getActiveTrainers(instanceId, locationName) {
+    const rows = db.all('SELECT * FROM map_trainers WHERE instance_id = ? AND location_name = ? AND is_defeated = 0', [instanceId, locationName])
+    return rows.map(this._rowToTrainer)
+  }
+
+  defeatTrainer(instanceId, locationName, trainerName) {
+    db.run('UPDATE map_trainers SET is_defeated = ?, defeated_at = ? WHERE instance_id = ? AND location_name = ? AND trainer_name = ?', [1, new Date().toISOString(), instanceId, locationName, trainerName])
+    db.save()
+  }
+
+  addWildEncounter(instanceId, locationName, pokemonName, level) {
+    db.run('INSERT INTO map_wild_encounters (instance_id, location_name, pokemon_name, level) VALUES (?, ?, ?, ?)', [instanceId, locationName, pokemonName, level])
+    db.save()
+  }
+
+  defeatWildEncounter(instanceId, locationName, pokemonName) {
+    db.run('UPDATE map_wild_encounters SET is_defeated = ?, defeated_at = ? WHERE instance_id = ? AND location_name = ? AND pokemon_name = ? AND is_defeated = 0', [1, new Date().toISOString(), instanceId, locationName, pokemonName])
+    db.save()
+  }
+
+  fleeWildEncounter(instanceId, locationName, pokemonName) {
+    db.run('UPDATE map_wild_encounters SET flee_at = ? WHERE instance_id = ? AND location_name = ? AND pokemon_name = ? AND is_defeated = 0', [new Date().toISOString(), instanceId, locationName, pokemonName])
+    db.save()
+  }
+
+  getCurrentWildEncounters(instanceId, locationName) {
+    const rows = db.all('SELECT * FROM map_wild_encounters WHERE instance_id = ? AND location_name = ? AND is_defeated = 0 AND flee_at IS NULL', [instanceId, locationName])
+    return rows.map(this._rowToWildEncounter)
+  }
+
+  _rowToMapInstance(row) {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      mapTier: row.map_tier,
+      currentLocation: row.current_location,
+      currentBuilding: row.current_building || null,
+      currentFloor: row.current_floor || 0,
+      exploredLocations: JSON.parse(row.explored_locations || '[]'),
+      exploredFeatures: JSON.parse(row.explored_features || '[]'),
+      visitedPoints: JSON.parse(row.visited_points || '[]'),
+      state: row.state,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }
+  }
+
+  _rowToDroppedItem(row) {
+    return {
+      id: row.id,
+      instanceId: row.instance_id,
+      locationName: row.location_name,
+      itemName: row.item_name,
+      quantity: row.quantity,
+      itemData: JSON.parse(row.item_data || '{}'),
+      droppedAt: row.dropped_at,
+      isPicked: row.is_picked === 1,
+      pickedAt: row.picked_at
+    }
+  }
+
+  _rowToTrainer(row) {
+    return {
+      id: row.id,
+      instanceId: row.instance_id,
+      locationName: row.location_name,
+      trainerName: row.trainer_name,
+      trainerTitle: row.trainer_title,
+      isDefeated: row.is_defeated === 1,
+      defeatedAt: row.defeated_at,
+      trainerData: JSON.parse(row.trainer_data || '{}')
+    }
+  }
+
+  _rowToWildEncounter(row) {
+    return {
+      id: row.id,
+      instanceId: row.instance_id,
+      locationName: row.location_name,
+      pokemonName: row.pokemon_name,
+      level: row.level,
+      isDefeated: row.is_defeated === 1,
+      defeatedAt: row.defeated_at,
+      fleeAt: row.flee_at
+    }
+  }
+}
+
 const playerDAL = new PlayerDAL()
 const gameStateDAL = new GameStateDAL()
 const listingDAL = new ListingDAL()
 const pokemonDAL = new PokemonDAL()
+const mapStateDAL = new MapStateDAL()
 
 module.exports = {
   database: db,
@@ -577,5 +782,6 @@ module.exports = {
   gameStateDAL,
   listingDAL,
   pokemonDAL,
+  mapStateDAL,
   ensureDbInit
 }

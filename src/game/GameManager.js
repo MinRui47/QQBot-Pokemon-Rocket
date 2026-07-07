@@ -9,14 +9,14 @@ const { EvacuationSystem } = require('./evacuation')
 const { getRankInfo } = require('./rankSystem')
 const { BACKPACK_TYPES } = require('./backpackTypes')
 const { getCollectionInfo, getRarityValue } = require('./collectionSystem')
-const { database, playerDAL, gameStateDAL, listingDAL } = require('./database/dal')
+const { database, playerDAL, gameStateDAL, listingDAL, mapStateDAL } = require('./database/dal')
 const { syncLoadFromDatabase } = require('./data/pokemonData')
 
 class GameInstance {
   constructor(player, mapTier) {
     this.player = player
     this.mapTier = mapTier
-    this.map = new GameMap(mapTier)
+    this.map = new GameMap(mapTier, player.userId)
     this.backpack = new Backpack(player.getBackpackCapacity())
     this.belt = new Belt()
     this.taskSystem = new TaskSystem()
@@ -36,7 +36,7 @@ class GameInstance {
   
   // 统一的道具获得方法
   addItemToBackpack(itemData) {
-    const { type, name, quantity, slots, rarity, price, location } = itemData
+    const { type, name, quantity, slots, rarity, price, location, skipDbDrop = false } = itemData
     
     // 计算需要的格数
     let requiredSlots = 0
@@ -66,16 +66,32 @@ class GameInstance {
     
     if (currentUsed + requiredSlots > maxSlots) {
       // 背包空间不足，道具留在原地
-      this.pendingItems.push({
-        type,
-        name,
-        quantity: quantity || 1,
-        slots: slots || 1,
-        rarity: rarity || 'common',
-        price: price || 0,
-        location: location || `${this.map.currentBuilding}_${this.map.currentFloor}`,
-        timestamp: Date.now()
-      })
+      if (!skipDbDrop) {
+        const defaultLocation = this.map.currentBuilding ? `${this.map.currentBuilding}_${this.map.currentFloor}` : `${this.map.currentLocation}_${this.map.currentFloor}`
+        const dropLocation = location || defaultLocation
+        const itemData = {
+          type,
+          slots: slots || 1,
+          rarity: rarity || 'common',
+          price: price || 0,
+          timestamp: Date.now()
+        }
+        
+        if (this.map.instanceId) {
+          mapStateDAL.dropItem(this.map.instanceId, dropLocation, name, quantity || 1, itemData)
+        } else {
+          this.pendingItems.push({
+            type,
+            name,
+            quantity: quantity || 1,
+            slots: slots || 1,
+            rarity: rarity || 'common',
+            price: price || 0,
+            location: dropLocation,
+            timestamp: Date.now()
+          })
+        }
+      }
       
       const itemText = type === 'collection' ? `藏品【${name}】` : `${name} x${quantity}`
       return {
@@ -106,6 +122,8 @@ class GameInstance {
   
   // 统一的道具丢弃方法
   dropItemFromBackpack(itemName, quantity = 1, isCollection = false) {
+    const dropLocation = this.map.currentBuilding ? `${this.map.currentBuilding}_${this.map.currentFloor}` : `${this.map.currentLocation}_${this.map.currentFloor}`
+    
     if (isCollection) {
       // 丢弃藏品
       const index = this.backpack.collections.findIndex(c => c.name === itemName)
@@ -116,16 +134,27 @@ class GameInstance {
       const collection = this.backpack.collections[index]
       this.backpack.collections.splice(index, 1)
       
-      // 藏品留在原地，可再次拾取
-      this.pendingItems.push({
+      const itemData = {
         type: 'collection',
-        name: collection.name,
         slots: collection.slots,
         rarity: collection.rarity,
         price: collection.price,
-        location: `${this.map.currentBuilding}_${this.map.currentFloor}`,
         timestamp: Date.now()
-      })
+      }
+      
+      if (this.map.instanceId) {
+        mapStateDAL.dropItem(this.map.instanceId, dropLocation, itemName, 1, itemData)
+      } else {
+        this.pendingItems.push({
+          type: 'collection',
+          name: collection.name,
+          slots: collection.slots,
+          rarity: collection.rarity,
+          price: collection.price,
+          location: dropLocation,
+          timestamp: Date.now()
+        })
+      }
       
       return { success: true, message: `丢弃了藏品【${itemName}】，留在原地可再次拾取` }
     } else {
@@ -142,14 +171,22 @@ class GameInstance {
         this.backpack.items = this.backpack.items.filter(i => i.name !== itemName)
       }
       
-      // 物品留在原地，可再次拾取
-      this.pendingItems.push({
+      const itemData = {
         type: 'item',
-        name: itemName,
-        quantity: dropQuantity,
-        location: `${this.map.currentBuilding}_${this.map.currentFloor}`,
         timestamp: Date.now()
-      })
+      }
+      
+      if (this.map.instanceId) {
+        mapStateDAL.dropItem(this.map.instanceId, dropLocation, itemName, dropQuantity, itemData)
+      } else {
+        this.pendingItems.push({
+          type: 'item',
+          name: itemName,
+          quantity: dropQuantity,
+          location: dropLocation,
+          timestamp: Date.now()
+        })
+      }
       
       return { success: true, message: `丢弃了 ${itemName} x${dropQuantity}，留在原地可再次拾取` }
     }
@@ -157,7 +194,26 @@ class GameInstance {
   
   // 拾取待拾取的道具
   pickupItem(itemName) {
-    const pendingItem = this.pendingItems.find(i => i.name === itemName)
+    let pendingItem = this.pendingItems.find(i => i.name === itemName)
+    
+    if (!pendingItem && this.map.instanceId) {
+      const currentLocation = this.map.currentBuilding ? `${this.map.currentBuilding}_${this.map.currentFloor}` : `${this.map.currentLocation}_${this.map.currentFloor}`
+      const droppedItems = mapStateDAL.getDroppedItems(this.map.instanceId, currentLocation)
+      pendingItem = droppedItems.find(i => i.itemName === itemName)
+      if (pendingItem) {
+        pendingItem = {
+          type: pendingItem.itemData?.type || 'item',
+          name: pendingItem.itemName,
+          quantity: pendingItem.quantity,
+          slots: pendingItem.itemData?.slots,
+          rarity: pendingItem.itemData?.rarity,
+          price: pendingItem.itemData?.price,
+          location: pendingItem.locationName,
+          dbId: pendingItem.id
+        }
+      }
+    }
+    
     if (!pendingItem) {
       return { success: false, message: `没有找到道具 ${itemName}` }
     }
@@ -170,12 +226,19 @@ class GameInstance {
       slots: pendingItem.slots,
       rarity: pendingItem.rarity,
       price: pendingItem.price,
-      location: pendingItem.location
+      location: pendingItem.location,
+      skipDbDrop: true
     })
     
     if (result.success) {
       // 成功拾取，从待拾取列表移除
       this.pendingItems = this.pendingItems.filter(i => i.name !== itemName)
+      
+      // 从数据库标记为已拾取
+      if (this.map.instanceId && pendingItem.dbId) {
+        mapStateDAL.pickItem(pendingItem.dbId)
+      }
+      
       return { success: true, message: `拾取了${pendingItem.type === 'collection' ? '藏品' : ''}【${itemName}】` }
     }
     
@@ -184,7 +247,28 @@ class GameInstance {
   
   // 查看待拾取道具列表
   getPendingItems() {
-    return this.pendingItems.map(item => {
+    const items = [...this.pendingItems]
+    
+    if (this.map.instanceId) {
+      const currentLocation = this.map.currentBuilding ? `${this.map.currentBuilding}_${this.map.currentFloor}` : `${this.map.currentLocation}_${this.map.currentFloor}`
+      const droppedItems = mapStateDAL.getDroppedItems(this.map.instanceId, currentLocation)
+      for (const dropped of droppedItems) {
+        const itemData = dropped.itemData || {}
+        const existing = items.find(i => i.name === dropped.itemName)
+        if (!existing) {
+          items.push({
+            type: itemData.type || 'item',
+            name: dropped.itemName,
+            quantity: dropped.quantity,
+            slots: itemData.slots,
+            rarity: itemData.rarity,
+            price: itemData.price
+          })
+        }
+      }
+    }
+    
+    return items.map(item => {
       if (item.type === 'collection') {
         const rarityText = { common: '普通', uncommon: '优秀', rare: '罕见', epic: '史诗', legendary: '金色', mythic: '神话' }
         return `【${item.name}】 ${rarityText[item.rarity]} ${item.slots}格 ${item.price}金币`

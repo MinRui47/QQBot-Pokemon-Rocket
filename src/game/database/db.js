@@ -15,15 +15,12 @@ class Database {
   async init() {
     if (this.initialized) return
 
-    // 确保数据目录存在
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true })
     }
 
-    // 初始化SQL.js
     this.SQL = await initSqlJs()
 
-    // 尝试加载现有数据库
     if (fs.existsSync(DB_PATH)) {
       try {
         const buffer = fs.readFileSync(DB_PATH)
@@ -38,13 +35,11 @@ class Database {
       console.log('[DB] 创建新数据库')
     }
 
-    // 初始化表结构
     this._initSchema()
     this.initialized = true
   }
 
   _initSchema() {
-    // 玩家表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS players (
         user_id TEXT PRIMARY KEY,
@@ -68,7 +63,6 @@ class Database {
       )
     `)
 
-    // 游戏状态表（不使用外键以避免约束问题）
     this.db.run(`
       CREATE TABLE IF NOT EXISTS game_states (
         user_id TEXT PRIMARY KEY,
@@ -78,7 +72,6 @@ class Database {
       )
     `)
 
-    // 交易系统表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS listings (
         id INTEGER PRIMARY KEY,
@@ -92,7 +85,6 @@ class Database {
       )
     `)
 
-    // 宝可梦基础数据表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS pokemons (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,11 +116,9 @@ class Database {
       )
     `)
 
-    // 创建宝可梦名称索引
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pokemons_name ON pokemons(name)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pokemons_pokedex_id ON pokemons(pokedex_id)`)
 
-    // 技能招式表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS moves (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -152,10 +142,8 @@ class Database {
       )
     `)
 
-    // 创建技能名称索引
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_moves_name ON moves(name)`)
 
-    // 宝可梦等级技能表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS pokemon_level_moves (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -170,7 +158,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_plm_pokemon ON pokemon_level_moves(pokemon_id)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_plm_move ON pokemon_level_moves(move_id)`)
 
-    // 宝可梦学习机技能表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS pokemon_tm_moves (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -185,7 +172,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_ptm_pokemon ON pokemon_tm_moves(pokemon_id)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_ptm_move ON pokemon_tm_moves(move_id)`)
 
-    // 个人宝可梦表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS personal_pokemon (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -233,7 +219,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pp_pokemon ON personal_pokemon(pokemon_id)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pp_npc ON personal_pokemon(npc_id)`)
 
-    // 道具表（宝可梦道具、药品、重要物品等）
     this.db.run(`
       CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -262,7 +247,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_items_name ON items(name)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_items_category ON items(category)`)
 
-    // 精灵球表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS pokeballs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -283,7 +267,6 @@ class Database {
     `)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pokeballs_name ON pokeballs(name)`)
 
-    // 藏品表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS collections (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -299,7 +282,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_collections_name ON collections(name)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_collections_rarity ON collections(rarity)`)
 
-    // 玩家背包道具表（玩家拥有的道具）
     this.db.run(`
       CREATE TABLE IF NOT EXISTS player_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -316,7 +298,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pi_user ON player_items(user_id)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pi_item ON player_items(item_id)`)
 
-    // 玩家精灵球表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS player_pokeballs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -333,7 +314,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pb_user ON player_pokeballs(user_id)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pb_pokeball ON player_pokeballs(pokeball_id)`)
 
-    // 玩家藏品表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS player_collections (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -348,7 +328,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pc_user ON player_collections(user_id)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_pc_collection ON player_collections(collection_id)`)
 
-    // 数据字典表 - 通用配置键值对
     this.db.run(`
       CREATE TABLE IF NOT EXISTS config_dictionary (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -363,7 +342,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_cd_key ON config_dictionary(config_key)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_cd_group ON config_dictionary(config_group)`)
 
-    // 属性克制关系表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS type_chart (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -377,7 +355,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_tc_attacker ON type_chart(attacker_type)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_tc_defender ON type_chart(defender_type)`)
 
-    // 状态效果表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS status_effects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -398,7 +375,6 @@ class Database {
     `)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_se_key ON status_effects(status_key)`)
 
-    // 稀有度配置表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS rarity_config (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -412,7 +388,6 @@ class Database {
     `)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_rc_key ON rarity_config(rarity_key)`)
 
-    // 地图位置表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS map_locations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -430,7 +405,6 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_ml_name ON map_locations(name)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_ml_difficulty ON map_locations(difficulty)`)
 
-    // 地图连接表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS map_connections (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -445,7 +419,6 @@ class Database {
     `)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_mc_from ON map_connections(from_location)`)
 
-    // 地图配置表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS map_config (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -469,7 +442,6 @@ class Database {
     `)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_mc_name ON map_config(map_name)`)
 
-    // 品质概率配置表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS rarity_probability (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -482,7 +454,6 @@ class Database {
     `)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_rp_difficulty ON rarity_probability(difficulty)`)
 
-    // 藏品名称库表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS collection_names (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -493,7 +464,6 @@ class Database {
     `)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_cn_rarity ON collection_names(rarity_key)`)
 
-    // 勋章配置表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS medal_config (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -506,7 +476,6 @@ class Database {
     `)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_mc_key ON medal_config(medal_key)`)
 
-    // 初始宝可梦表
     this.db.run(`
       CREATE TABLE IF NOT EXISTS initial_pokemon (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -517,9 +486,93 @@ class Database {
     `)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_ip_pokemon ON initial_pokemon(pokemon_name)`)
 
-    // 保存数据库
-    this.save()
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS map_instances (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        map_tier TEXT NOT NULL,
+        current_location TEXT NOT NULL,
+        current_building TEXT,
+        current_floor INTEGER DEFAULT 0,
+        explored_locations TEXT DEFAULT '[]',
+        explored_features TEXT DEFAULT '[]',
+        visited_points TEXT DEFAULT '[]',
+        state TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id)
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mi_user ON map_instances(user_id)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mi_state ON map_instances(state)`)
 
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS map_locations_state (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instance_id INTEGER,
+        location_name TEXT NOT NULL,
+        feature_name TEXT NOT NULL,
+        is_searched INTEGER DEFAULT 0,
+        searched_at TEXT,
+        FOREIGN KEY (instance_id) REFERENCES map_instances(id)
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mls_instance ON map_locations_state(instance_id)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mls_location ON map_locations_state(location_name)`)
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS map_dropped_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instance_id INTEGER,
+        location_name TEXT NOT NULL,
+        item_name TEXT NOT NULL,
+        quantity INTEGER DEFAULT 1,
+        item_data TEXT DEFAULT '{}',
+        dropped_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        is_picked INTEGER DEFAULT 0,
+        picked_at TEXT,
+        FOREIGN KEY (instance_id) REFERENCES map_instances(id)
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mdi_instance ON map_dropped_items(instance_id)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mdi_location ON map_dropped_items(location_name)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mdi_picked ON map_dropped_items(is_picked)`)
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS map_trainers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instance_id INTEGER,
+        location_name TEXT NOT NULL,
+        trainer_name TEXT NOT NULL,
+        trainer_title TEXT,
+        is_defeated INTEGER DEFAULT 0,
+        defeated_at TEXT,
+        trainer_data TEXT DEFAULT '{}',
+        FOREIGN KEY (instance_id) REFERENCES map_instances(id),
+        UNIQUE(instance_id, location_name, trainer_name)
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mt_instance ON map_trainers(instance_id)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mt_location ON map_trainers(location_name)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mt_defeated ON map_trainers(is_defeated)`)
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS map_wild_encounters (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instance_id INTEGER,
+        location_name TEXT NOT NULL,
+        pokemon_name TEXT NOT NULL,
+        level INTEGER NOT NULL,
+        is_defeated INTEGER DEFAULT 0,
+        defeated_at TEXT,
+        flee_at TEXT,
+        FOREIGN KEY (instance_id) REFERENCES map_instances(id)
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mwe_instance ON map_wild_encounters(instance_id)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_mwe_location ON map_wild_encounters(location_name)`)
+
+    this.save()
     console.log('[DB] 表结构初始化完成')
   }
 
@@ -537,7 +590,6 @@ class Database {
   run(sql, params = []) {
     try {
       this.db.run(sql, params)
-      this.save()
       return { changes: this.db.getRowsModified() }
     } catch (e) {
       console.error('[DB] SQL执行失败:', e?.message || e, '\nSQL:', sql, '\n参数:', params)
@@ -547,7 +599,6 @@ class Database {
 
   get(sql, params = []) {
     try {
-      // sql.js不支持参数化的get方法，需要手动替换参数
       let finalSql = sql
       for (const param of params) {
         finalSql = finalSql.replace('?', `'${param}'`)
@@ -570,7 +621,6 @@ class Database {
 
   all(sql, params = []) {
     try {
-      // sql.js不支持参数化的all方法，需要手动替换参数
       let finalSql = sql
       for (const param of params) {
         finalSql = finalSql.replace('?', `'${param}'`)
@@ -602,7 +652,6 @@ class Database {
   }
 }
 
-// 单例模式
 const database = new Database()
 
 module.exports = database
