@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
-const { Player, Pokemon, Backpack, Belt, INITIAL_POKEMON, ITEM_CONFIG, RARITY_COLORS } = require('./models')
+const { Player, Pokemon, Backpack, Belt, ITEM_CONFIG, RARITY_COLORS } = require('./models')
+const { INITIAL_POKEMON: getInitialPokemon } = require('./config')
 const { GameMap, getAvailableMaps, getMapInfo, MEDALS } = require('./map')
 const { BattleSystem } = require('./battle')
 const { TradingSystem } = require('./trading')
@@ -288,7 +289,8 @@ class GameInstance {
   }
   
   selectInitialPokemon(pokemonName) {
-    if (!INITIAL_POKEMON.includes(pokemonName)) {
+    const initialPokemon = require('./config').INITIAL_POKEMON || ['阿柏蛇', '瓦斯弹', '超音蝠']
+    if (!initialPokemon.includes(pokemonName)) {
       return { success: false, message: '请选择：阿柏蛇/瓦斯弹/超音蝠' }
     }
     
@@ -832,15 +834,16 @@ class GameInstance {
   }
 
   searchTrainer() {
-    if (!this.defeatedTrainer) {
+    if (!this.defeatedTrainers || this.defeatedTrainers.length === 0) {
       return { success: false, message: '没有可搜刮的训练家' }
     }
-    if (this.defeatedTrainer.hasBeenSearched) {
-      return { success: false, message: '该训练家已被搜刮过' }
+    
+    const trainer = this.defeatedTrainers.find(t => !t.hasBeenSearched)
+    if (!trainer) {
+      return { success: false, message: '所有训练家已被搜刮过' }
     }
 
-    this.defeatedTrainer.hasBeenSearched = true
-    const trainer = this.defeatedTrainer
+    trainer.hasBeenSearched = true
 
     // 获取背包稀有度和格数
     const backpackInfo = BACKPACK_TYPES[trainer.backpackType] || {}
@@ -1162,7 +1165,7 @@ class GameInstance {
       status: this.status,
       currentEncounter: this.currentEncounter,
       turnCount: this.turnCount,
-      defeatedTrainer: this.defeatedTrainer,
+      defeatedTrainers: this.defeatedTrainers || [],
       weakenedPokemon: this.weakenedPokemon,
       collections: this.collections || []
     }
@@ -1181,7 +1184,7 @@ class GameInstance {
     game.status = data.status
     game.currentEncounter = data.currentEncounter
     game.turnCount = data.turnCount
-    game.defeatedTrainer = data.defeatedTrainer || null
+    game.defeatedTrainers = data.defeatedTrainers || []
     game.weakenedPokemon = data.weakenedPokemon || null
     game.collections = data.collections || []
     return game
@@ -1895,7 +1898,8 @@ class GameManager {
     if (!player.isAtBase()) {
       return { success: false, message: '你不在火箭队基地，无法租借精灵！' }
     }
-    if (!INITIAL_POKEMON.includes(pokemonName)) {
+    const initialPokemon = require('./config').INITIAL_POKEMON || ['阿柏蛇', '瓦斯弹', '超音蝠']
+    if (!initialPokemon.includes(pokemonName)) {
       return { success: false, message: '可租借精灵：阿柏蛇、瓦斯弹、超音蝠' }
     }
     if (player.warehouse.pokemon.length > 0) {

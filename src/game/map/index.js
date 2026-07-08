@@ -322,16 +322,341 @@ const GYM_LEADERS = {
   }
 }
 
-const NPC_TRAINERS = [
-  { name: '路人训练家', pokemonCount: 1, difficulty: 1, rewardMultiplier: 1.0, items: ['普通精灵球', '伤药'] },
-  { name: '精英训练家', pokemonCount: 2, difficulty: 2, rewardMultiplier: 1.5, items: ['超级球', '好伤药'] },
-  { name: '道馆挑战者', pokemonCount: 3, difficulty: 3, rewardMultiplier: 2.0, items: ['高级球', '高级伤药'] },
-  { name: '四天王候选人', pokemonCount: 4, difficulty: 4, rewardMultiplier: 3.0, items: ['高级球', '全满药', '进化石'] },
-  { name: '火箭队干部', pokemonCount: 3, difficulty: 3, rewardMultiplier: 2.5, items: ['高级球', '技能机', '进化石'] },
-  { name: '火箭队小兵', pokemonCount: 1, difficulty: 2, rewardMultiplier: 1.2, items: ['普通精灵球', '伤药'] },
-  { name: '道馆馆主', pokemonCount: 3, difficulty: 4, rewardMultiplier: 3.5, items: ['大师球', '全满药', '进化石'], isGymLeader: true },
-  { name: '野生训练家', pokemonCount: 1, difficulty: 1, rewardMultiplier: 1.0, items: ['普通精灵球'] }
-]
+const TRAINER_TYPES = {
+  bug_catcher: {
+    title: '捕虫少年',
+    names: ['阿龙', '小健', '小胜', '小春', '阿弘', '健太', '小勇', '小强', '小龙', '小虎', '小豹', '小狼'],
+    pokemonTypes: ['虫'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 1,
+    rewardMultiplier: 1.0,
+    itemPool: [
+      { name: '伤药', probability: 0.9 },
+      { name: '普通精灵球', probability: 0.6 },
+      { name: '蜂蜜', probability: 0.3 },
+      { name: '捕虫网', probability: 0.2 },
+      { name: '虫之茧', probability: 0.15 }
+    ]
+  },
+  hiker: {
+    title: '登山男',
+    names: ['大山', '岩男', '石雄', '岩太', '大石', '岩城', '石垣', '岩本', '石山', '岩崎'],
+    pokemonTypes: ['岩石', '地面'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 2,
+    rewardMultiplier: 1.3,
+    itemPool: [
+      { name: '伤药', probability: 0.85 },
+      { name: '普通精灵球', probability: 0.5 },
+      { name: '岩石护符', probability: 0.25 },
+      { name: '化石碎片', probability: 0.2 },
+      { name: '高级球', probability: 0.15 }
+    ]
+  },
+  swimmer_m: {
+    title: '泳裤小子',
+    names: ['海斗', '洋平', '潮太', '海人', '洋介', '潮男', '海波', '海翔', '洋翔', '海斗'],
+    pokemonTypes: ['水'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 2,
+    rewardMultiplier: 1.3,
+    itemPool: [
+      { name: '伤药', probability: 0.9 },
+      { name: '普通精灵球', probability: 0.5 },
+      { name: '水之石', probability: 0.2 },
+      { name: '超级球', probability: 0.15 },
+      { name: '珍珠', probability: 0.1 }
+    ]
+  },
+  swimmer_f: {
+    title: '游泳少女',
+    names: ['小美', '海美', '洋子', '潮美', '海子', '洋美', '潮子', '海浪', '海花', '洋花'],
+    pokemonTypes: ['水'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 2,
+    rewardMultiplier: 1.3,
+    itemPool: [
+      { name: '好伤药', probability: 0.8 },
+      { name: '普通精灵球', probability: 0.5 },
+      { name: '水之石', probability: 0.2 },
+      { name: '超级球', probability: 0.15 },
+      { name: '珊瑚', probability: 0.1 }
+    ]
+  },
+  schoolboy: {
+    title: '校服男孩',
+    names: ['小健', '小翔', '小阳', '小浩', '小宇', '小航', '小晨', '小旭', '小峰', '小林'],
+    pokemonTypes: ['一般', '飞行'],
+    pokemonCount: { min: 1, max: 2 },
+    difficulty: 1,
+    rewardMultiplier: 1.0,
+    itemPool: [
+      { name: '伤药', probability: 0.8 },
+      { name: '普通精灵球', probability: 0.6 },
+      { name: '学习装置', probability: 0.1 },
+      { name: '糖果', probability: 0.2 }
+    ]
+  },
+  schoolgirl: {
+    title: '校服女孩',
+    names: ['小美', '小雪', '小雨', '小花', '小月', '小星', '小琳', '小琪', '小婷', '小雯'],
+    pokemonTypes: ['一般', '草'],
+    pokemonCount: { min: 1, max: 2 },
+    difficulty: 1,
+    rewardMultiplier: 1.0,
+    itemPool: [
+      { name: '好伤药', probability: 0.7 },
+      { name: '普通精灵球', probability: 0.5 },
+      { name: '进化石', probability: 0.1 },
+      { name: '糖果', probability: 0.3 }
+    ]
+  },
+  youngster: {
+    title: '少年训练家',
+    names: ['小勇', '小力', '小猛', '小强', '小壮', '小健', '小雄', '小龙', '小虎', '小豹'],
+    pokemonTypes: ['一般', '电'],
+    pokemonCount: { min: 1, max: 2 },
+    difficulty: 1,
+    rewardMultiplier: 1.0,
+    itemPool: [
+      { name: '伤药', probability: 0.9 },
+      { name: '普通精灵球', probability: 0.7 },
+      { name: '雷之石', probability: 0.1 },
+      { name: '电池', probability: 0.2 }
+    ]
+  },
+  lass: {
+    title: '少女训练家',
+    names: ['小樱', '小桃', '小兰', '小梅', '小雪', '小雨', '小风', '小云', '小月', '小星'],
+    pokemonTypes: ['一般', '妖精', '超能力'],
+    pokemonCount: { min: 1, max: 2 },
+    difficulty: 1,
+    rewardMultiplier: 1.0,
+    itemPool: [
+      { name: '好伤药', probability: 0.75 },
+      { name: '普通精灵球', probability: 0.5 },
+      { name: '月亮石', probability: 0.1 },
+      { name: '香水', probability: 0.2 }
+    ]
+  },
+  bird_keeper: {
+    title: '养鸟人',
+    names: ['大鸟', '飞鸟', '翔太', '翔子', '鹰男', '隼人', '翼男', '羽男', '空男', '翔太'],
+    pokemonTypes: ['飞行'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 2,
+    rewardMultiplier: 1.3,
+    itemPool: [
+      { name: '伤药', probability: 0.85 },
+      { name: '普通精灵球', probability: 0.5 },
+      { name: '飞之石', probability: 0.15 },
+      { name: '羽毛', probability: 0.3 },
+      { name: '超级球', probability: 0.1 }
+    ]
+  },
+  fisherman: {
+    title: '垂钓者',
+    names: ['老钓', '渔夫', '鱼吉', '钓太郎', '鱼雄', '钓男', '鱼助', '钓吉', '鱼太', '钓雄'],
+    pokemonTypes: ['水'],
+    pokemonCount: { min: 2, max: 4 },
+    difficulty: 2,
+    rewardMultiplier: 1.4,
+    itemPool: [
+      { name: '好伤药', probability: 0.8 },
+      { name: '普通精灵球', probability: 0.6 },
+      { name: '水之石', probability: 0.2 },
+      { name: '钓竿', probability: 0.25 },
+      { name: '高级球', probability: 0.1 }
+    ]
+  },
+  camper: {
+    title: '露营少年',
+    names: ['野野', '露营', '山男', '林男', '森男', '野男', '山太', '林太', '森太', '野太'],
+    pokemonTypes: ['草', '一般'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 2,
+    rewardMultiplier: 1.2,
+    itemPool: [
+      { name: '伤药', probability: 0.9 },
+      { name: '普通精灵球', probability: 0.5 },
+      { name: '草之石', probability: 0.15 },
+      { name: '帐篷', probability: 0.2 },
+      { name: '果实', probability: 0.3 }
+    ]
+  },
+  picnicker: {
+    title: '野餐少女',
+    names: ['樱野', '花野', '草野', '山野', '林野', '森野', '野花', '野莓', '野菊', '野花'],
+    pokemonTypes: ['草', '妖精'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 2,
+    rewardMultiplier: 1.2,
+    itemPool: [
+      { name: '好伤药', probability: 0.75 },
+      { name: '普通精灵球', probability: 0.5 },
+      { name: '草之石', probability: 0.15 },
+      { name: '野餐篮', probability: 0.2 },
+      { name: '果实', probability: 0.4 }
+    ]
+  },
+  biker: {
+    title: '自行车手',
+    names: ['飙男', '速男', '快男', '疾男', '风男', '速人', '快人', '疾人', '风人', '飙太'],
+    pokemonTypes: ['火', '一般'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 3,
+    rewardMultiplier: 1.6,
+    itemPool: [
+      { name: '好伤药', probability: 0.8 },
+      { name: '超级球', probability: 0.5 },
+      { name: '火之石', probability: 0.2 },
+      { name: '自行车零件', probability: 0.3 },
+      { name: '高级球', probability: 0.15 }
+    ]
+  },
+  gym_challenger: {
+    title: '道馆挑战者',
+    names: ['挑战者A', '挑战者B', '挑战者C', '挑战者D', '挑战者E', '挑战者F', '挑战者G', '挑战者H', '挑战者I', '挑战者J'],
+    pokemonTypes: ['各种'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 3,
+    rewardMultiplier: 1.8,
+    itemPool: [
+      { name: '好伤药', probability: 0.85 },
+      { name: '超级球', probability: 0.5 },
+      { name: '高级球', probability: 0.25 },
+      { name: '技能机', probability: 0.2 },
+      { name: '进化石', probability: 0.15 }
+    ]
+  },
+  league_champion: {
+    title: '联盟冠军',
+    names: ['渡', '大吾', '米可利', '竹兰', '艾莉丝', '卡露妮', '丹帝', '阿尔宙斯', '赤红', '青绿'],
+    pokemonTypes: ['各种'],
+    pokemonCount: { min: 4, max: 6 },
+    difficulty: 4,
+    rewardMultiplier: 3.0,
+    itemPool: [
+      { name: '全满药', probability: 0.8 },
+      { name: '高级球', probability: 0.7 },
+      { name: '技能机', probability: 0.5 },
+      { name: '进化石', probability: 0.4 },
+      { name: '大师球', probability: 0.1 },
+      { name: '冠军徽章', probability: 0.3 }
+    ],
+    isBoss: true
+  },
+  elite_four: {
+    title: '四天王',
+    names: ['菊子', '阿桔', '希巴', '科拿', '希罗娜', '阿柳', '菊野', '大叶', '嘉德丽雅', '连武'],
+    pokemonTypes: ['各种'],
+    pokemonCount: { min: 3, max: 4 },
+    difficulty: 4,
+    rewardMultiplier: 2.5,
+    itemPool: [
+      { name: '全满药', probability: 0.75 },
+      { name: '高级球', probability: 0.6 },
+      { name: '技能机', probability: 0.45 },
+      { name: '进化石', probability: 0.35 },
+      { name: '大师球', probability: 0.08 },
+      { name: '稀有藏品', probability: 0.2 }
+    ],
+    isBoss: true
+  },
+  hero_trainer: {
+    title: '主角训练家',
+    names: ['小智', '小茂', '小遥', '小光', '小胜', '莎莉娜', '莉莉艾', '玛奥', '水莲', '小春'],
+    pokemonTypes: ['各种'],
+    pokemonCount: { min: 3, max: 5 },
+    difficulty: 4,
+    rewardMultiplier: 2.8,
+    itemPool: [
+      { name: '全满药', probability: 0.7 },
+      { name: '高级球', probability: 0.5 },
+      { name: '技能机', probability: 0.4 },
+      { name: '进化石', probability: 0.3 },
+      { name: '大师球', probability: 0.05 },
+      { name: '珍贵藏品', probability: 0.25 }
+    ],
+    isBoss: true
+  },
+  elite_trainer: {
+    title: '精英训练家',
+    names: ['强者', '高手', '达人', '专家', '大师', '宗师', '王者', '霸者', '尊者', '圣者'],
+    pokemonTypes: ['各种'],
+    pokemonCount: { min: 3, max: 4 },
+    difficulty: 3,
+    rewardMultiplier: 2.0,
+    itemPool: [
+      { name: '好伤药', probability: 0.9 },
+      { name: '超级球', probability: 0.6 },
+      { name: '高级球', probability: 0.3 },
+      { name: '技能机', probability: 0.25 },
+      { name: '进化石', probability: 0.2 },
+      { name: '稀有藏品', probability: 0.1 }
+    ]
+  },
+  psychic: {
+    title: '超能力者',
+    names: ['先知', '预言家', '占卜师', '灵媒', '念力师', '超能力者', '魔法师', '幻术师', '催眠师', '通灵师'],
+    pokemonTypes: ['超能力', '幽灵'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 3,
+    rewardMultiplier: 1.8,
+    itemPool: [
+      { name: '好伤药', probability: 0.75 },
+      { name: '超级球', probability: 0.4 },
+      { name: '觉醒石', probability: 0.2 },
+      { name: '神秘道具', probability: 0.25 },
+      { name: '高级球', probability: 0.15 }
+    ]
+  },
+  blackbelt: {
+    title: '空手道王',
+    names: ['武男', '拳王', '格斗家', '武者', '武师', '拳师', '武斗家', '格斗王', '武之王', '拳之圣'],
+    pokemonTypes: ['格斗'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 3,
+    rewardMultiplier: 1.8,
+    itemPool: [
+      { name: '好伤药', probability: 0.85 },
+      { name: '超级球', probability: 0.4 },
+      { name: '格斗护腕', probability: 0.3 },
+      { name: '力量强化', probability: 0.2 },
+      { name: '高级球', probability: 0.1 }
+    ]
+  },
+  collector: {
+    title: '收藏家',
+    names: ['收藏家', '鉴赏家', '鉴定师', '古董商', '珍品家', '宝物猎人', '寻宝家', '收藏家A', '收藏家B', '收藏家C'],
+    pokemonTypes: ['稀有'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 3,
+    rewardMultiplier: 2.0,
+    itemPool: [
+      { name: '好伤药', probability: 0.7 },
+      { name: '高级球', probability: 0.4 },
+      { name: '稀有藏品', probability: 0.3 },
+      { name: '古董', probability: 0.25 },
+      { name: '大师球', probability: 0.05 }
+    ]
+  },
+  scientist: {
+    title: '科学家',
+    names: ['博士', '研究员', '学者', '教授', '工程师', '技术员', '实验员', '科学家A', '科学家B', '科学家C'],
+    pokemonTypes: ['电', '钢', '超能力'],
+    pokemonCount: { min: 2, max: 3 },
+    difficulty: 3,
+    rewardMultiplier: 1.8,
+    itemPool: [
+      { name: '好伤药', probability: 0.8 },
+      { name: '超级球', probability: 0.4 },
+      { name: '技能机', probability: 0.3 },
+      { name: '实验材料', probability: 0.3 },
+      { name: '高级球', probability: 0.15 }
+    ]
+  }
+}
 
 class MapPoint {
   constructor(type, name, description) {
@@ -600,6 +925,8 @@ class GameMap {
     this.currentFloor = config.floor || 1
     this.exploredFeatures.add(featureName)
     
+    this._saveInstance()
+    
     const messages = [`进入了「${featureName}」`]
     
     if (config.hasSecondFloor) {
@@ -653,6 +980,8 @@ class GameMap {
     this.currentBuilding = null
     this.currentFloor = 0
     
+    this._saveInstance()
+    
     return {
       success: true,
       message: `离开了「${building}」`,
@@ -690,6 +1019,8 @@ class GameMap {
     if (config.hasSecondFloor && targetFloor === 2) {
       this.currentFloor = 2
       
+      this._saveInstance()
+      
       const encounter = this._checkSecondFloorEncounter()
       
       return {
@@ -703,6 +1034,8 @@ class GameMap {
     // 多楼层建筑
     if (config.hasMultipleFloors && targetFloor >= 1 && targetFloor <= config.maxFloors) {
       this.currentFloor = targetFloor
+      
+      this._saveInstance()
       
       const encounter = this._checkBuildingEncounter(config)
       
@@ -823,6 +1156,8 @@ class GameMap {
     }
     
     this.exploredFeatures.add(searchedKey)
+    
+    this._saveInstance()
     
     const rewards = []
     const messages = []
@@ -1032,6 +1367,8 @@ class GameMap {
       mapStateDAL.markLocationSearched(this.instanceId, this.currentLocation, featureName)
     }
     
+    this._saveInstance()
+    
     const rewards = []
     const messages = []
     
@@ -1122,42 +1459,115 @@ class GameMap {
       }
     }
     
-    const pool = NPC_TRAINERS.filter(t => t.difficulty <= this._getDifficulty())
+    const difficulty = this._getDifficulty()
     
-    let template
+    let trainerTypeKey
     if (configOverride.isBoss) {
-      template = pool.find(t => t.isBoss) || pool[pool.length - 1]
-    } else if (configOverride.isGym) {
-      template = pool.find(t => t.isGymLeader) || pool[pool.length - 1]
+      const bossTypes = Object.entries(TRAINER_TYPES)
+        .filter(([key, type]) => type.isBoss)
+        .map(([key]) => key)
+      trainerTypeKey = bossTypes[Math.floor(Math.random() * bossTypes.length)]
     } else {
-      template = pool[Math.floor(Math.random() * pool.length)]
+      const availableTypes = Object.entries(TRAINER_TYPES)
+        .filter(([key, type]) => type.difficulty <= difficulty && !type.isBoss)
+        .map(([key]) => key)
+      trainerTypeKey = availableTypes[Math.floor(Math.random() * availableTypes.length)]
     }
     
+    const trainerType = TRAINER_TYPES[trainerTypeKey]
+    
+    const name = trainerType.names[Math.floor(Math.random() * trainerType.names.length)]
+    const pokemonCount = Math.floor(Math.random() * (trainerType.pokemonCount.max - trainerType.pokemonCount.min + 1)) + trainerType.pokemonCount.min
+    
+    const pokemon = this._generateTrainerPokemon(trainerType, pokemonCount)
+    
+    const items = this._generateTrainerItems(trainerType)
+    
+    return {
+      name: name,
+      title: trainerType.title,
+      pokemon: pokemon,
+      rewardMultiplier: trainerType.rewardMultiplier,
+      hasMedal: Math.random() < 0.2,
+      items: items,
+      isGymLeader: false,
+      isBoss: trainerType.isBoss || false
+    }
+  }
+  
+  _generateTrainerPokemon(trainerType, count) {
     const pokemon = []
-    for (let i = 0; i < template.pokemonCount; i++) {
-      const name = this.config.pokemonPool[Math.floor(Math.random() * this.config.pokemonPool.length)]
-      const level = Math.floor(Math.random() * (this.config.levelRange.max - this.config.levelRange.min + 1)) + this.config.levelRange.min
+    const levelRange = this.config.levelRange
+    
+    for (let i = 0; i < count; i++) {
+      let level
+      if (trainerType.isBoss) {
+        const bossBonus = Math.floor(levelRange.max * 0.5)
+        level = Math.floor(Math.random() * (levelRange.max - levelRange.min + 1)) + levelRange.min + bossBonus
+      } else {
+        level = Math.floor(Math.random() * (levelRange.max - levelRange.min + 1)) + levelRange.min
+      }
+      
+      let name
+      if (trainerType.pokemonTypes.includes('各种')) {
+        name = this.config.pokemonPool[Math.floor(Math.random() * this.config.pokemonPool.length)]
+      } else if (trainerType.pokemonTypes.includes('稀有')) {
+        name = this._getRarePokemon(level)
+      } else {
+        name = this._getPokemonByTypes(trainerType.pokemonTypes)
+      }
+      
       pokemon.push({ name, level, rarity: getPokemonRarity(name) })
     }
     
-    const trainerItems = []
-    if (template.items) {
-      for (const itemName of template.items) {
-        if (Math.random() < 0.5) {
-          trainerItems.push({ name: itemName, quantity: Math.floor(Math.random() * 2) + 1 })
-        }
+    return pokemon
+  }
+  
+  _getPokemonByTypes(types) {
+    const db = require('../database/db')
+    let query = 'SELECT name FROM pokemons WHERE type1 IN (?'
+    const params = [...types]
+    
+    if (types.length > 1) {
+      query += ', ?'.repeat(types.length - 1)
+    }
+    query += ') OR type2 IN (?'
+    if (types.length > 1) {
+      query += ', ?'.repeat(types.length - 1)
+    }
+    query += ')'
+    
+    const results = db.all(query, [...params, ...params])
+    
+    if (results.length > 0) {
+      return results[Math.floor(Math.random() * results.length)].name
+    }
+    
+    return this.config.pokemonPool[Math.floor(Math.random() * this.config.pokemonPool.length)]
+  }
+  
+  _getRarePokemon(level) {
+    const db = require('../database/db')
+    const results = db.all('SELECT name FROM pokemons WHERE rarity = "rare" OR rarity = "legendary" OR rarity = "mythical" LIMIT 20')
+    
+    if (results.length > 0) {
+      return results[Math.floor(Math.random() * results.length)].name
+    }
+    
+    return this.config.pokemonPool[Math.floor(Math.random() * this.config.pokemonPool.length)]
+  }
+  
+  _generateTrainerItems(trainerType) {
+    const items = []
+    
+    for (const itemConfig of trainerType.itemPool) {
+      if (Math.random() < itemConfig.probability) {
+        const quantity = Math.floor(Math.random() * 2) + 1
+        items.push({ name: itemConfig.name, quantity })
       }
     }
     
-    return {
-      name: template.name,
-      pokemon: pokemon,
-      rewardMultiplier: template.rewardMultiplier,
-      hasMedal: Math.random() < 0.2,
-      items: trainerItems,
-      isGymLeader: template.isGymLeader || false,
-      isBoss: template.isBoss || false
-    }
+    return items
   }
   
   lootTrainer(trainer) {
@@ -1228,7 +1638,22 @@ class GameMap {
     map.currentBuilding = data.currentBuilding || null
     map.currentFloor = data.currentFloor || 0
     map.exploredFeatures = new Set(data.exploredFeatures || [])
+    
+    if (map.userId && map.instanceId) {
+      map._syncToDatabase()
+    }
+    
     return map
+  }
+  
+  _syncToDatabase() {
+    if (!this.instanceId) return
+    
+    this._saveInstance()
+    
+    for (const feature of this.exploredFeatures) {
+      mapStateDAL.markLocationSearched(this.instanceId, this.currentLocation, feature)
+    }
   }
 }
 
@@ -1263,7 +1688,7 @@ module.exports = {
   MAP_LOCATIONS,
   FEATURE_CONFIG,
   MEDALS,
-  NPC_TRAINERS,
+  TRAINER_TYPES,
   getAvailableMaps,
   getMapInfo,
   initMapConfig

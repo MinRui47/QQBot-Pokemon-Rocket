@@ -50,7 +50,11 @@ async function refreshFromDb() {
     MEDALS[key] = medal.name
   }
   
-  INITIAL_POKEMON = initialPokemon
+  INITIAL_POKEMON = initialPokemon || ['阿柏蛇', '瓦斯弹', '超音蝠']
+  
+  module.exports.INITIAL_POKEMON = INITIAL_POKEMON
+  module.exports.RARITY_COLORS = RARITY_COLORS
+  module.exports.MEDALS = MEDALS
   
   console.log('[Config] 配置已从数据库刷新')
 }

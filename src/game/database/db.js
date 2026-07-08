@@ -592,7 +592,7 @@ class Database {
       this.db.run(sql, params)
       return { changes: this.db.getRowsModified() }
     } catch (e) {
-      console.error('[DB] SQL执行失败:', e?.message || e, '\nSQL:', sql, '\n参数:', params)
+      console.error('[DB] SQL执行失败:', (e && e.message) || e, '\nSQL:', sql, '\n参数:', params)
       throw e
     }
   }
